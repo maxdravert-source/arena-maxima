@@ -1,0 +1,3321 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Arena Maxima — Jeu de gladiateur</title>
+<style>
+  :root {
+    font-family: Georgia, 'Times New Roman', serif;
+    color: #f3e9d2; background: #1a120b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 50% 0%, #3a2a18, #14100a 70%); }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { text-align: center; letter-spacing: 3px; color: #d4a94e; text-transform: uppercase; font-size: 26px; margin: 8px 0 2px; }
+  .sub { text-align: center; color: #a08a63; font-style: italic; margin-bottom: 18px; font-size: 14px; }
+  .panel { background: #241a10; border: 2px solid #5a4326; border-radius: 10px; padding: 16px; margin-bottom: 14px; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+  .panel h2 { margin: 0 0 10px; color: #d4a94e; font-size: 17px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; user-select: none; }
+  #heroPanel.hidden { display: none; }
+  /* Panneau Personnage figé en haut de l'écran */
+  #heroPanel:not(.hidden) {
+    position: sticky; top: 8px; z-index: 40;
+    padding: 10px 14px; margin-bottom: 14px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.75);
+    backdrop-filter: blur(3px);
+  }
+  #heroPanel h2 { display: none; }
+  #heroPanel:not(.hidden) #heroHead { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  #heroPanel #heroAvatar { width: 52px; height: 64px; object-fit: cover; border-radius: 5px; border: 2px solid #d4a94e; display: block; }
+  #heroPanel #heroHead h2 { display: block; margin: 0; font-size: 15px; }
+  #heroPanel #heroTitleTag { display: none; color:#d4a94e; font-size:12px; letter-spacing:.5px; margin-top:1px; }
+  #heroPanel .stats { font-size: 12px; gap: 6px; flex-wrap: wrap; }
+  #heroPanel .bar { height: 18px; }
+  .bar > div { position: relative; }
+  .bar .bar-txt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: #f3e9d2; text-shadow: 0 1px 2px #000, 0 0 3px #000; letter-spacing: .3px; }
+  #heroHead h2 { margin: 0; }
+  .panel h2::after { content: " ▾"; font-size: 13px; color: #a08a63; }
+  .panel.collapsed h2::after { content: " ▴"; }
+  .panel.collapsed > *:not(h2) { display: none; }
+  .panel.collapsed { padding: 10px 16px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 15px; }
+  .stats b { color: #d4a94e; }
+  .bar { background: #10100c; border: 1px solid #5a4326; border-radius: 5px; height: 14px; overflow: hidden; margin: 4px 0 10px; }
+  .bar > div { height: 100%; background: linear-gradient(90deg, #8b1a1a, #d44); transition: width .3s; }
+  .bar.xp > div { background: linear-gradient(90deg, #6a5b1e, #d4a94e); }
+  button { font-family: inherit; background: #5a4326; color: #f3e9d2; border: 1px solid #d4a94e; border-radius: 6px; padding: 9px 18px; font-size: 15px; cursor: pointer; margin: 3px 4px 3px 0; }
+  button:hover { background: #7a5c34; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary { background: #8b1a1a; border-color: #d66; }
+  button.primary:hover { background: #a52a2a; }
+  input[type=text] { font-family: inherit; background: #10100c; color: #f3e9d2; border: 1px solid #5a4326; border-radius: 6px; padding: 8px 12px; font-size: 15px; width: 220px; }
+  .log { font-size: 14px; line-height: 1.55; max-height: 220px; overflow-y: auto; }
+  .log div { padding: 2px 0; border-bottom: 1px dotted #3a2a18; }
+  .log .hit { color: #e88; } .log .crit { color: #ff9a3d; font-weight: bold; } .log .miss { color: #8a9; }
+  .log .gold { color: #d4a94e; } .log .sys { color: #a08a63; font-style: italic; }
+  .log .rare { color: #b18cf0; font-weight: bold; }
+  .log .loot-commun { color: #b8b0a0; }
+  .log .loot-superieur { color: #6fd66f; font-weight: bold; }
+  .log .loot-epique { color: #6aa9ff; font-weight: bold; }
+  .log .loot-legendaire { color: #ff9a3d; font-weight: bold; text-shadow: 0 0 6px rgba(255,154,61,.6); }
+  .log .loot-divin { color: #ff3b3b; font-weight: bold; text-shadow: 0 0 10px rgba(255,59,59,.8); }
+  .vs { display: flex; justify-content: space-between; align-items: center; text-align: center; gap: 10px; }
+  .fighter { flex: 1; padding: 8px; }
+  .fighter .name { font-size: 17px; color: #d4a94e; }
+  .vs .middle { color: #8b1a1a; font-size: 26px; font-weight: bold; text-shadow: 0 0 8px #d44; }
+  .shop-item, .opp { display: flex; justify-content: space-between; align-items: center; padding: 7px 4px; border-bottom: 1px dotted #3a2a18; font-size: 14px; }
+  .hp-num { font-size: 12px; color: #a08a63; }
+  .avatarImg { width: 170px; height: 210px; object-fit: cover; border-radius: 10px; display: block; border: 2px solid #d4a94e; }
+  .avatarSvg { width: 170px; height: 210px; object-fit: contain; border-radius: 10px; display: block; }
+  .avatarPick { display: flex; justify-content: center; gap: 16px; margin: 14px 0; }
+  .avatarCard { cursor: pointer; padding: 8px; border: 2px solid #4a3a20; border-radius: 10px; text-align: center; transition: all .15s; background: #171208; max-width: 150px; }
+  .avatarCard:hover { border-color: #d4a94e; }
+  .avatarCard.selected { border-color: #d4a94e; box-shadow: 0 0 12px rgba(212,169,78,.4); background: #241a0c; }
+  .avatarCard.selected .avatarName { color: #d4a94e; font-weight: bold; }
+  .avatarName { margin-top: 6px; font-size: 14px; color: #a08a63; }
+  .inv-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 4px; border-bottom: 1px dotted #3a2a18; font-size: 14px; }
+  .inv-item input[type=checkbox] { transform: scale(1.2); margin-right: 6px; }
+  .inv-empty { color: #a08a63; font-style: italic; font-size: 14px; }
+  /* -- Poupée d'équipement (façon Gladiatus) -- */
+  .doll-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 8px; }
+  .slot-tile { width: 64px; height: 68px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #171208; border: 2px solid #5a4326; border-radius: 8px; font-size: 24px; cursor: pointer; padding: 2px; line-height: 1.1; }
+  .slot-tile small { font-size: 9px; color: #a08a63; }
+  .slot-tile.empty { opacity: .38; border-style: dashed; cursor: default; font-size: 16px; background: transparent; }
+  .doll-avatar { width: 74px; height: 78px; border-radius: 8px; border: 2px solid #d4a94e; overflow: hidden;
+    display: flex; align-items: center; justify-content: center; background: #171208; font-size: 26px; }
+  .doll-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  /* -- Grille du sac -- */
+  .bag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 6px; }
+  .bag-tile { position: relative; height: 58px; display: flex; align-items: center; justify-content: center;
+    background: #171208; border: 2px solid #5a4326; border-radius: 8px; font-size: 22px; cursor: pointer; padding: 2px; }
+  .bag-tile.sel { box-shadow: 0 0 0 3px #ff9a3d; border-color: #ff9a3d; }
+  .bag-tile.cur { box-shadow: 0 0 0 3px #d4a94e; }
+  .bag-tile i { position: absolute; bottom: 1px; right: 4px; font-size: 9px; font-style: normal; }
+  .vs-portrait { width: 150px; height: 150px; border-radius: 12px; object-fit: cover; border: 3px solid #d4a94e; display: block; margin: 0 auto 8px; box-shadow: 0 3px 12px rgba(0,0,0,.6); }
+  #vsBlock .fighter { text-align: center; }
+  .opp-thumb { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; border: 2px solid #6e5b3a; flex-shrink: 0; }
+  .opp { display: flex; align-items: center; gap: 10px; }
+  .opp-thumb.big { width: 150px; height: 150px; border-color: #d4a94e; }
+  .inv-detail-card { margin-top: 10px; background: #1a1206; border: 2px solid #5a4326; border-radius: 8px; padding: 8px; font-size: 13px; }
+  .inv-detail-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .actions { margin-top: 8px; }
+  .hidden { display: none; }
+  .footnote { text-align: center; font-size: 12px; color: #6e5b3a; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Arena Maxima</h1>
+  <div class="sub">« Du sable, du sang, de la gloire. » — jeu de gladiateur local, 100% original</div>
+
+  <!-- Création -->
+  <div id="creation" class="panel">
+    <h2>Création du gladiateur</h2>
+    <p>Choisis ton avatar :</p>
+    <div class="avatarPick">
+      <div class="avatarCard" data-gender="homme">
+        <img class="avatarImg" id="imgHomme"
+          src="images/hero-gladiateur.jpg"
+          alt="Gladiateur" />
+        <img class="avatarSvg hidden" id="svgHomme" alt="Gladiateur (hors ligne)" src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 110'%3E%3Ccircle cx='45' cy='55' r='44' fill='%23241a0c' stroke='%236e5b3a' stroke-width='2'/%3E%3Cpath d='M30 52 Q45 44 60 52 L58 62 Q45 58 32 62 Z' fill='%23d8a068'/%3E%3Cpath d='M32 62 h26 l-2 10 h-22 Z' fill='%23d8a068'/%3E%3Cpath d='M36 66 h18 M38 70 h14 M40 74 h10' stroke='%23a06a3e' stroke-width='1.2'/%3E%3Cpath d='M38 52 q7 3 14 0' stroke='%23a06a3e' stroke-width='1.2' fill='none'/%3E%3Cpath d='M60 50 L38 88' stroke='%238b1a1a' stroke-width='6' stroke-linecap='round'/%3E%3Cpath d='M62 54 q10 2 12 -10' stroke='%23d8a068' stroke-width='7' stroke-linecap='round' fill='none'/%3E%3Cpath d='M73 40 l4 -18' stroke='%23c9ccd4' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M36 30 Q45 20 54 30 L54 40 Q45 36 36 40 Z' fill='%23d8a068'/%3E%3Ccircle cx='42' cy='33' r='1.4' fill='%232a1a0a'/%3E%3Ccircle cx='49' cy='33' r='1.4' fill='%232a1a0a'/%3E%3Cpath d='M34 24 Q45 8 56 24 L52 22 Q45 12 38 22 Z' fill='%23c9ccd4'/%3E%3Cpath d='M38 22 Q45 13 52 22 L50 26 Q45 18 40 26 Z' fill='%238b1a1a'/%3E%3Cpath d='M38 82 l-2 14 M52 82 l2 14' stroke='%23d8a068' stroke-width='6' stroke-linecap='round'/%3E%3Cpath d='M34 96 l6 0 M54 96 l-6 0' stroke='%236e5b3a' stroke-width='3'/%3E%3C/svg%3E" />
+        <div class="avatarName">⚔ Gladiateur</div>
+      </div>
+      <div class="avatarCard" data-gender="femme">
+        <img class="avatarImg" id="imgFemme"
+          src="images/hero-gladiatrice.jpg"
+          alt="Gladiatrice" />
+        <img class="avatarSvg hidden" id="svgFemme" alt="Gladiatrice (hors ligne)" src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 110'%3E%3Ccircle cx='45' cy='55' r='44' fill='%23241a0c' stroke='%236e5b3a' stroke-width='2'/%3E%3Cpath d='M32 26 Q24 50 28 78 Q26 92 32 100 Q30 80 34 60 Z' fill='%23e8c66a'/%3E%3Cpath d='M58 26 Q66 50 62 78 Q64 92 58 100 Q60 80 56 60 Z' fill='%23e8c66a'/%3E%3Cpath d='M36 54 Q45 48 54 54 L52 60 Q45 57 38 60 Z' fill='%23e0a878'/%3E%3Cpath d='M38 60 h14 l-1 6 q-6 3 -12 0 Z' fill='%23e0a878'/%3E%3Cpath d='M36 66 q9 4 18 0 l-2 14 q-7 3 -14 0 Z' fill='%238b1a1a'/%3E%3Cpath d='M38 55 q7 4 14 0' stroke='%23f5d76e' stroke-width='2.5' fill='none'/%3E%3Ccircle cx='45' cy='59' r='2' fill='%23f5d76e'/%3E%3Cpath d='M54 56 q9 3 10 13' stroke='%23e0a878' stroke-width='5.5' stroke-linecap='round' fill='none'/%3E%3Cpath d='M64 69 q8 -2 10 -12' stroke='%23c9ccd4' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3Cpath d='M38 34 Q45 27 52 34 L52 42 Q45 39 38 42 Z' fill='%23e0a878'/%3E%3Ccircle cx='42' cy='37' r='1.4' fill='%232a1a0a'/%3E%3Ccircle cx='49' cy='37' r='1.4' fill='%232a1a0a'/%3E%3Cpath d='M43 41 q2 1 4 0' stroke='%23a04a4a' stroke-width='1.1' fill='none'/%3E%3Cpath d='M36 25 Q45 15 54 25 L52 29 Q45 22 38 29 Z' fill='%23f5d76e'/%3E%3Ccircle cx='45' cy='18' r='2.5' fill='%23f5d76e'/%3E%3Ccircle cx='38' cy='44' r='1.3' fill='%23f5d76e'/%3E%3Ccircle cx='52' cy='44' r='1.3' fill='%23f5d76e'/%3E%3Cpath d='M40 82 l-1 13 M50 82 l1 13' stroke='%23e0a878' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M38 90 h5 M48 90 h5 M37 95 h6 M48 95 h6' stroke='%238b1a1a' stroke-width='1.4'/%3E%3C/svg%3E" />
+        <div class="avatarName">🗡 Gladiatrice</div>
+      </div>
+    </div>
+    <p style="font-size:12px;color:#a08a63;margin:14px 0 4px;">Nom de ton gladiateur :</p>
+    <p style="font-size:12px;color:#a08a63;margin:0 0 4px;"><input type="text" id="heroName" placeholder="Maximus" maxlength="20" style="width:200px;padding:8px;text-align:center;font-size:15px;" /></p>
+    <button class="primary" id="btnPlay" style="margin-top:10px;font-size:16px;padding:10px 30px;">🎮 Jouer</button>
+  </div>
+  <!-- Personnage -->
+  <div id="heroPanel" class="panel hidden">
+    <div id="heroHead">
+      <img id="heroAvatar" class="hidden" alt="Avatar" />
+      <div>
+        <h2 id="heroTitle"></h2>
+        <div id="heroTitleTag" style="display:none;color:#d4a94e;font-size:13px;letter-spacing:.5px;margin-top:2px;"></div>
+      </div>
+    </div>
+    <div class="stats">
+      <span>Niveau <b id="sLvl">1</b></span>
+      <span>Or : <b id="sGold">50</b></span>
+      <span>Vie <b id="hpTxt"></b></span>
+    </div>
+    <div class="bar" style="margin:6px 0 2px;"><div id="hpBar" style="width:100%"><span class="bar-txt" id="hpBarTxt"></span></div></div>
+    <div class="bar xp" style="margin-top:2px;"><div id="xpBar" style="width:0%"><span class="bar-txt" id="xpBarTxt"></span></div></div>
+    <div id="pointsNote" class="hidden" style="color:#d4a94e;font-size:14px;margin-top:8px;">
+      <!-- Les points de niveau n'existent plus : l'entraînement est la seule voie d'amélioration des stats de base. -->
+    </div>
+    <div style="margin-top:14px;">
+      <div id="resetConfirm" class="hidden" style="margin-top:8px;padding:10px;background:#10100c;border:1px solid #8b1a1a;border-radius:6px;font-size:13px;">
+        ⚠ <b>Êtes-vous sûr de vouloir supprimer ce personnage ?</b><br/>
+        Toute sa progression (niveau, or, objets, donjon) sera définitivement perdue.
+        <div style="margin-top:6px;">
+          <button class="primary" id="btnResetYes" style="font-size:12px;padding:4px 12px;">Oui, supprimer</button>
+          <button id="btnResetNo" style="font-size:12px;padding:4px 12px;">Non, annuler</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arène -->
+  <!-- Onglet Combat : barres de vie, actions et chronique -->
+  <div id="combatPanel" class="panel hidden">
+    <h2 id="combatTitle">⚔ Combat</h2>
+    <div class="vs hidden" id="vsBlock">
+      <div class="fighter"><img id="fHeroImg" class="vs-portrait" alt="" style="display:none" /><div class="name" id="fHeroName"></div><div class="hp-num" id="fHeroHp"></div><div class="bar"><div id="fHeroBar" style="width:100%"></div></div></div>
+      <div class="middle">VS</div>
+      <div class="fighter"><img id="fFoeImg" class="vs-portrait" alt="" style="display:none" /><div class="name" id="fFoeName"></div><div class="hp-num" id="fFoeHp"></div><div class="bar"><div id="fFoeBar" style="width:100%"></div></div></div>
+    </div>
+    <div class="actions" id="combatActions"></div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <div id="arena" class="panel hidden">
+    <h2>L'Arène</h2>
+    <div id="arenaChoose"></div>
+  </div>
+
+  <!-- Camp d'entraînement -->
+  <div id="training" class="panel hidden">
+    <h2>🏛 Camp d'entraînement (Castrum)</h2>
+    <p style="font-size:13px;color:#a08a63;margin:0 0 8px;">Améliore tes stats avec de l'or, comme au ludus. Le prix de chaque entraînement augmente avec le nombre de séances déjà suivies.</p>
+    <div id="trainList"></div>
+  </div>
+
+  <!-- Inventaire & Forge -->
+  <div id="inventory" class="panel hidden">
+    <h2>🎒 Inventaire & Forge</h2>
+    <!-- Onglets du sac : équipement / nourriture -->
+    <div class="invTabs" style="display:flex;gap:6px;margin-bottom:10px;">
+      <button id="invTabEquip" class="primary" style="font-size:13px;padding:5px 14px;">⚔ Équipements <small id="invEquipCount"></small></button>
+      <button id="invTabFood" style="font-size:13px;padding:5px 14px;">🍲 Nourriture <small id="invFoodCount"></small></button>
+    </div>
+    <div id="invEquipPane">
+      <div id="dollGrid"></div>
+      <div style="color:#d4a94e;font-size:14px;margin:14px 0 6px;">Sac <small id="bagCount" style="color:#a08a63;"></small></div>
+      <div id="invList"></div>
+    </div>
+    <div id="invFoodPane" style="display:none;">
+      <div id="foodList"></div>
+    </div>
+    <div id="invDetail"></div>
+    <div id="forgeBox" style="margin-top:10px;"></div>
+  </div>
+
+  <!-- Mode Aventure -->
+  <div id="adventure" class="panel hidden">
+    <h2>🗼 Mode Aventure — La Grande Tour</h2>
+    <div id="advStatus"></div>
+    <div class="actions" id="advActions"></div>
+  </div>
+
+  <!-- Journal -->
+  <!-- La chronique du combat vit désormais dans l'onglet Combat -->
+
+  <!-- Boutique (déplacée tout en bas) -->
+  <div id="shop" class="panel hidden">
+    <h2>Armurerie</h2>
+    <div id="shopList"></div>
+  </div>
+
+  <!-- Bloc paramètres (compte, personnage) -->
+  <div id="saveBlock" class="panel hidden">
+    <h2>⚙️ Paramètres</h2>
+    <p style="font-size:13px;color:#a08a63;margin:0 0 8px;">👤 Compte <small id="cloudStatus" style="color:#8a9;"></small></p>
+    <div style="font-size:12px;color:#a08a63;">
+      Connecté : <b id="accountEmail" style="color:#d4a94e;">—</b><br/>
+      Ta progression est synchronisée automatiquement avec ton compte, sur tous tes appareils.
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button id="btnCharList" style="font-size:13px;padding:6px 14px;">🎭 Liste des personnages</button>
+      <button id="btnLogout" style="font-size:13px;padding:6px 14px;">🚪 Se déconnecter</button>
+      <button id="btnReset" style="font-size:13px;padding:6px 14px;">🗑 Recommencer à zéro</button>
+    </div>
+  </div>
+
+  <div class="footnote">Ta progression est sauvegardée automatiquement dans ton compte (cloud) — plus besoin de codes.</div>
+</div>
+
+<!-- ===== Écran de connexion (obligatoire) ===== -->
+<div id="authOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:radial-gradient(ellipse at center,#241a0c 0%,#0d0a05 75%);overflow:auto;">
+  <div style="max-width:380px;margin:40px auto;padding:26px 30px;background:linear-gradient(160deg,#2a2012,#171208);border:2px solid #6e5b3a;border-radius:14px;box-shadow:0 6px 30px rgba(0,0,0,.7);">
+    <div style="text-align:center;font-size:34px;">🏛</div>
+    <h2 style="text-align:center;color:#d4a94e;margin:6px 0 2px;">ARENA MAXIMA</h2>
+    <p style="text-align:center;font-size:13px;color:#a08a63;margin:0 0 16px;">Connecte-toi pour entrer dans l'arène.<br/>Ta progression est liée à ton compte.</p>
+    <input type="email" id="authEmail" placeholder="Adresse e-mail" autocomplete="email" style="width:100%;box-sizing:border-box;padding:9px;font-size:14px;background:#10100c;color:#d4a94e;border:1px solid #6e5b3a;border-radius:6px;margin-bottom:8px;" />
+    <input type="password" id="authPass" placeholder="Mot de passe (6 caractères min.)" autocomplete="current-password" style="width:100%;box-sizing:border-box;padding:9px;font-size:14px;background:#10100c;color:#d4a94e;border:1px solid #6e5b3a;border-radius:6px;margin-bottom:10px;" />
+    <div style="display:flex;gap:8px;">
+      <button id="btnAuthLogin" style="flex:1;padding:10px;font-size:14px;">⚔ Entrer</button>
+      <button id="btnAuthRegister" style="flex:1;padding:10px;font-size:14px;">✒ Créer un compte</button>
+    </div>
+    <p id="authStatus" style="text-align:center;font-size:13px;color:#c96;margin:10px 0 0;min-height:18px;"></p>
+  </div>
+</div>
+
+<!-- SDK Firebase (Auth + Firestore) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<!-- ===== Écran de sélection du personnage (après connexion) ===== -->
+<div id="charSelectOverlay" style="display:none;position:fixed;inset:0;z-index:9998;background:radial-gradient(ellipse at center,#241a0c 0%,#0d0a05 75%);overflow:auto;">
+  <div style="max-width:720px;margin:30px auto;padding:22px 26px;background:linear-gradient(160deg,#2a2012,#171208);border:2px solid #6e5b3a;border-radius:14px;box-shadow:0 6px 30px rgba(0,0,0,.7);">
+    <h2 style="text-align:center;color:#d4a94e;margin:0 0 4px;">⚔ Choisis ton gladiateur</h2>
+    <p style="text-align:center;font-size:13px;color:#a08a63;margin:0 0 18px;">Tes personnages sont sauvegardés dans ton compte.</p>
+    <div id="charList" style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;"></div>
+    <p id="charSelectStatus" style="text-align:center;font-size:13px;color:#c96;margin:12px 0 0;min-height:18px;"></p>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Diagnostic : affiche toute erreur JavaScript directement dans la page
+  window.onerror = function (msg, src, line) {
+    try {
+      var d = document.createElement("div");
+      d.style.cssText = "color:#ff6b6b;background:#2a1010;border:1px solid #ff6b6b;border-radius:6px;padding:8px;margin:6px;font-size:12px;";
+      d.textContent = "⚠ Erreur (ligne " + line + ") : " + msg;
+      (document.querySelector(".wrap") || document.body).insertBefore(d, (document.querySelector(".wrap") || document.body).firstChild);
+    } catch (e) {}
+    return false;
+  };
+
+  var SAVE_KEY = "arena_maxima_save_v1";
+  // ---- Zones d'aventure ----
+  // "tour" : La Grande Tour (progression dans H.adv)
+  // "test" : Zone test — copie conforme de la tour (progression dans H.test)
+  var advZone = "tour";
+  // Données de progression de la zone ACTIVE (créées à la volée)
+  function advData() {
+    if (advZone === "test") {
+      if (!H.test) H.test = { tower: 1, floor: 1, maxTower: 1 };
+      return H.test;
+    }
+    if (!H.adv) H.adv = { tower: 1, floor: 1 };
+    return H.adv;
+  }
+  // Données de la zone d'un ennemi (le combat mémorise sa zone d'origine)
+  function advOf(zone) {
+    if (zone === "test") {
+      if (!H.test) H.test = { tower: 1, floor: 1, maxTower: 1 };
+      return H.test;
+    }
+    return H.adv || (H.adv = { tower: 1, floor: 1 });
+  }
+  function zoneLabel() { return advZone === "test" ? "🧪 Zone test" : advZone === "donjon" ? "🏰 Donjons" : "🗼 La Grande Tour"; }
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---- État ----
+  var H = null;      // héros
+  var foe = null;    // adversaire courant
+  var inCombat = false;
+
+  // Stats de départ identiques pour tous : les points se gagnent en jouant
+  var BASE_STATS = { str: 4, agi: 4, end: 5, cha: 4, esq: 4 };
+
+  function newHero(name, gender) {
+    var h = {
+      name: name || "Gladiateur", gender: gender || "homme", clsLabel: gender === "femme" ? "Gladiatrice" : "Gladiateur",
+      level: 1, xp: 0, gold: 50, points: 0,
+      str: BASE_STATS.str, agi: BASE_STATS.agi, end: BASE_STATS.end, cha: BASE_STATS.cha, esq: BASE_STATS.esq,
+      hp: 0, maxHp: 0, items: [], equipped: emptyEquipped(), companions: [], tour: null, adv: null,
+      wins: 0, trains: { str: 0, agi: 0, end: 0, cha: 0, esq: 0 }, familyKills: {}
+    };
+    // Dotation du laniste : équipement de débutant, directement porté
+    h.equipped.arme = { id: "starter_gladius", atk: 3, def: 0, slot: "arme", hands: 1, name: "Gladius d'entraînement" };
+    h.equipped.bouclier = { id: "starter_scutum", atk: 0, def: 2, slot: "bouclier", hands: 1, name: "Scutum ébréché" };
+    h.equipped.armure = { id: "starter_lorica", atk: 0, def: 3, slot: "armure", hands: 0, name: "Lorica de cuir" };
+    h.equipped.chaussure = { id: "starter_caligae", atk: 0, def: 1, slot: "chaussure", hands: 0, name: "Caligae usées" };
+    return h;
+  }
+
+  // ---- Bonus de stats d'équipement : chaque objet tire des lignes de bonus ----
+  var BONUS_KEYS = ["str", "agi", "end", "cha", "esq", "def", "gold", "xp"];
+  var BONUS_LABELS = { str: "Force", agi: "Agilité", end: "Endurance", cha: "Charisme", esq: "Esquive", def: "Armure", gold: "% Or", xp: "% XP" };
+  var BONUS_ICONS = { str: "💪", agi: "🏃", end: "❤", cha: "🎭", esq: "🌀", def: "🛡", gold: "💰", xp: "✨" };
+  // Nombre de lignes de bonus par tier : commun 1, supérieur 2, épique 3, légendaire 4, divin 5
+  var RARITY_LINES = { commun: 1, superieur: 2, epique: 3, legendaire: 4, divin: 5 };
+  function rollBonusLines(rarityId, p) {
+    var n = RARITY_LINES[rarityId] || 1;
+    // Rang DIVIN : pas d'aléatoire sur les valeurs — chaque ligne est toujours
+    // au MAXIMUM du tirage possible pour ce palier (seule la nature des stats
+    // reste aléatoire). Les autres rangs tirent normalement.
+    var isDivine = rarityId === "divin";
+    var roll = isDivine ? function () { return 1; } : Math.random;
+    var lines = [], used = {};
+    for (var i = 0; i < n; i++) {
+      var key = BONUS_KEYS[Math.floor(Math.random() * BONUS_KEYS.length)];
+      var guard = 0;
+      while (used[key] && guard < 20) { key = BONUS_KEYS[Math.floor(Math.random() * BONUS_KEYS.length)]; guard++; }
+      used[key] = true;
+      // Valeur selon la ligne : stats de combat, armure, ou pourcentage or/XP (plus rares et modestes)
+      var val;
+      if (key === "gold" || key === "xp") val = Math.max(1, Math.round(1 + roll() * (1 + p * 0.25)));
+      else val = Math.max(1, Math.round((1 + roll() * Math.max(1, p)) * 0.7));
+      lines.push({ stat: key, val: val });
+    }
+    return lines;
+  }
+  // Héros effectif : stats de base + bonus de stats de l'équipement porté
+  function effOf(f) {
+    if (f !== H || !H || !H.equipped) return f;
+    var e = { str: H.str, agi: H.agi, end: H.end, cha: H.cha || 0, esq: H.esq || 0,
+      level: H.level, equipped: H.equipped, items: H.items, hp: H.hp, maxHp: H.maxHp, name: H.name };
+    var eq = equippedList(H);
+    for (var i = 0; i < eq.length; i++) {
+      var b = eq[i].bonusStats;
+      if (!b) continue;
+      for (var j = 0; j < b.length; j++) {
+        if (b[j].stat === "def") e.bonusDef = (e.bonusDef || 0) + b[j].val;
+        else e[b[j].stat] = (e[b[j].stat] || 0) + b[j].val;
+      }
+    }
+    return e;
+  }
+  // Multiplicateurs d'or et d'XP : somme des lignes 💰/✨ portées (en %)
+  function goldMult() {
+    var m = 1, eq = (H && H.equipped) ? equippedList(H) : [];
+    for (var i = 0; i < eq.length; i++) {
+      var b = eq[i] && eq[i].bonusStats;
+      if (!b) continue;
+      for (var j = 0; j < b.length; j++) if (b[j].stat === "gold") m += b[j].val / 100;
+    }
+    return m;
+  }
+  function xpMult() {
+    var m = 1, eq = (H && H.equipped) ? equippedList(H) : [];
+    for (var i = 0; i < eq.length; i++) {
+      var b = eq[i] && eq[i].bonusStats;
+      if (!b) continue;
+      for (var j = 0; j < b.length; j++) if (b[j].stat === "xp") m += b[j].val / 100;
+    }
+    return m;
+  }
+  // Description d'un objet : dés d'arme, armure de base, lignes de bonus
+  function bonusTxt(it) {
+    if (!it) return "";
+    var out = [];
+    if (it.atkDice) out.push("⚔ " + it.atkBase + "+1D" + it.atkDice);
+    if (it.def) out.push("🛡 +" + it.def);
+    if (it.bonusStats) for (var i = 0; i < it.bonusStats.length; i++)
+      out.push(BONUS_ICONS[it.bonusStats[i].stat] + " +" + it.bonusStats[i].val + " " + BONUS_LABELS[it.bonusStats[i].stat]);
+    return out.join(" · ");
+  }
+  function maxHpOf(f) { f = effOf(f); return 30 + f.end * 6 + f.level * 4; }
+  // Comparaison d'un objet du sac avec l'objet porté du même slot :
+  // renvoie du HTML (lignes de différences) ou "" si non comparable.
+  function compareWithEquipped(it) {
+    if (!it || !it.slot || it.food) return "";
+    var cur = H.equipped[it.slot];
+    // Bagues : si l'autre doigt est libre, l'objet s'y équipera → comparer à vide
+    if ((it.slot === "bague1" || it.slot === "bague2") && cur) {
+      var other = it.slot === "bague1" ? "bague2" : "bague1";
+      if (!H.equipped[other]) cur = null;
+    }
+    var diffs = [];
+    // Dégâts : valeur moyenne du dé (atkBase + (atkDice+1)/2)
+    var avg = function (x) { return (x.atkBase || 0) + ((x.atkDice || 0) + 1) / 2; };
+    // PV implicites via lignes de bonus d'endurance
+    var deltaAtk = Math.round((avg(it) - (cur ? avg(cur) : 0)) * 10) / 10;
+    var deltaDef = (it.def || 0) - (cur ? (cur.def || 0) : 0);
+    if (deltaAtk) diffs.push((deltaAtk > 0 ? "📈 +" : "📉 ") + deltaAtk + " attaque");
+    if (deltaDef) diffs.push((deltaDef > 0 ? "📈 +" : "📉 ") + deltaDef + " défense");
+    // Lignes de stats (str/agi/end/cha/esq + def bonus)
+    var keys = ["str", "agi", "end", "cha", "esq", "def"];
+    for (var k = 0; k < keys.length; k++) {
+      var key = keys[k];
+      var val = function (x) {
+        if (!x || !x.bonusStats) return 0;
+        var v = 0;
+        for (var j = 0; j < x.bonusStats.length; j++) if (x.bonusStats[j].stat === key) v += x.bonusStats[j].val;
+        return v;
+      };
+      var d = val(it) - val(cur);
+      if (d) diffs.push((d > 0 ? "📈 +" : "📉 ") + d + " " + (BONUS_LABELS[key] || key) + (key === "end" ? " (≈" + (d * 6) + " PV)" : ""));
+    }
+    if (!diffs.length) return "";
+    var head = cur
+      ? '<small style="color:#a08a63;">vs porté : ' + cur.name + (cur.itemLevel ? ' (niv. ' + cur.itemLevel + ')' : '') + '</small>'
+      : '<small style="color:#a08a63;">vs : emplacement vide (' + slotLabel(it.slot) + ')</small>';
+    return '<div style="margin-top:6px;padding:6px 8px;background:#10100c;border:1px dashed #6e5b3a;border-radius:6px;font-size:12px;">' +
+      head + '<div style="margin-top:4px;">' + diffs.join("<br/>") + '</div></div>';
+  }
+  function equippedList(f) {
+    if (!f.equipped) return f.items || []; // les ennemis n'ont pas de slots
+    var out = [];
+    for (var s in f.equipped) if (f.equipped[s]) out.push(f.equipped[s]);
+    return out;
+  }
+  // ---- Dés d'arme : une arme inflige atkBase + 1D(atkDice) au lieu d'un fixe ----
+  function rollDice(faces) { return 1 + Math.floor(Math.random() * faces); }
+  // Convertit une valeur d'attaque moyenne en base + dé (ex. 12 → 7+1D10)
+  function addWeaponDice(it) {
+    if (it.slot !== "arme" || !it.atk) return it;
+    var ev = it.atk;
+    it.atkBase = Math.max(1, Math.round(ev * 0.6));
+    it.atkDice = Math.max(2, 2 * Math.max(1, Math.round(ev * 0.4)));
+    return it;
+  }
+  // Affichage : "7+1D10" pour une arme à dés, la valeur fixe sinon
+  function dmgTxt(it) {
+    return (it && it.atkDice) ? (it.atkBase + "+1D" + it.atkDice) : ((it && it.atk) || 0);
+  }
+  function dmgOf(f) {
+    f = effOf(f);
+    var base = 3 + f.str * 1.6;
+    var eq = equippedList(f);
+    for (var i = 0; i < eq.length; i++) {
+      // Les armes à dés lancent leur dé à chaque coup : base + 1D faces
+      base += eq[i].atkDice ? (eq[i].atkBase + rollDice(eq[i].atkDice)) : (eq[i].atk || 0);
+    }
+    return Math.round(base);
+  }
+  function armorOf(f) {
+    f = effOf(f);
+    var a = f.bonusDef || 0;
+    var eq = equippedList(f);
+    for (var i = 0; i < eq.length; i++) a += eq[i].def || 0;
+    return a;
+  }
+  function xpNeeded(lvl) { return 20 + lvl * 15; }
+
+  // ---- Slots d'équipement ----
+  var SLOTS = [
+    { id: "arme",     label: "Arme" },
+    { id: "bouclier", label: "Bouclier" },
+    { id: "casque",  label: "Casque" },
+    { id: "armure",  label: "Armure" },
+    { id: "gant",    label: "Gants" },
+    { id: "jambe",   label: "Jambières" },
+    { id: "chaussure", label: "Chaussures" },
+    { id: "amulette", label: "Amulette" },
+    { id: "boucle",  label: "Boucle d'oreilles" },
+    { id: "bague1",  label: "Bague (I)" },
+    { id: "bague2",  label: "Bague (II)" }
+  ];
+  function slotLabel(id) {
+    for (var i = 0; i < SLOTS.length; i++) if (SLOTS[i].id === id) return SLOTS[i].label;
+    return "Objet";
+  }
+  function randomSlot() {
+    var r = Math.random();
+    if (r < 0.09) return "arme";
+    if (r < 0.17) return "bouclier";
+    if (r < 0.29) return "casque";
+    if (r < 0.41) return "armure";
+    if (r < 0.53) return "gant";
+    if (r < 0.65) return "jambe";
+    if (r < 0.76) return "chaussure";
+    if (r < 0.85) return "amulette";
+    if (r < 0.92) return "boucle";
+    return Math.random() < 0.5 ? "bague1" : "bague2";
+  }
+  // Un objet d'arme peut être à une main (équipable aussi en bouclier) ou deux mains (arme uniquement)
+  function rollHands(slot) {
+    if (slot === "arme") return Math.random() < 0.65 ? 1 : 2;
+    if (slot === "bouclier") return 1;
+    return 0; // pas une arme
+  }
+  function emptyEquipped() {
+    return { arme: null, bouclier: null, casque: null, armure: null, gant: null, jambe: null, chaussure: null, amulette: null, boucle: null, bague1: null, bague2: null };
+  }
+
+  // ---- Stock de l'armurerie : rotation toutes les 4 h et à chaque niveau ----
+  var SHOP_STOCK_SIZE = 10;
+  var SHOP_REFRESH_MS = 4 * 60 * 60 * 1000; // 4 heures
+  // Probabilités de rareté du stock (jamais divin) : légendaire = 1 %
+  function shopRarity() {
+    var r = Math.random() * 100;
+    if (r < 1) return RARITIES[3];    // légendaire : 1 %
+    if (r < 7.5) return RARITIES[2];  // épique : 6,5 %
+    if (r < 21.5) return RARITIES[1]; // supérieur : 14 %
+    return RARITIES[0];               // commun : 78,5 %
+  }
+  // Génère un objet de marchand adapté au niveau (±3) — fonctionne même avant que H existe
+  function rollShopItem(forLevel) {
+    var lvl = Math.max(1, forLevel + Math.floor(Math.random() * 7) - 3); // niveau ± 3
+    var rar = shopRarity();
+    var p = 1 + Math.floor(lvl / 2);
+    var slot = randomSlot();
+    var isWeapon = slot === "arme";
+    var hands = rollHands(slot);
+    // Armes à 2 mains : attaque ×2 (elles privent du bouclier — blocage et
+    // défense — le surplus d'attaque doit compenser largement ce sacrifice)
+    var atkMult = (isWeapon && hands === 2) ? 2 : 1;
+    var it = {
+      id: "shop_" + Math.floor(Math.random() * 1e9),
+      name: rollItemName(slot, hands, rar.id),
+      rarity: rar.id, rarityLabel: rar.label, logCls: rar.logCls,
+      slot: slot, hands: hands,
+      atk: isWeapon ? Math.max(1, Math.round((2 + Math.random() * (2 + p)) * rar.mult * atkMult)) : 0,
+      def: isWeapon ? 0 : Math.max(1, Math.round((2 + Math.random() * (2 + p)) * rar.mult * 0.8)),
+      shopItem: true, itemLevel: lvl
+    };
+    if (isWeapon) addWeaponDice(it);
+    it.bonusStats = rollBonusLines(rar.id, p);
+    // Prix proportionnel à la rareté et au niveau de l'objet
+    it.cost = Math.round((SELL_RATES[it.rarity] + (it.atk + it.def) * 4) * (1 + it.itemLevel * 0.08));
+    return it;
+  }
+  function refreshShopStock(force) {
+    var now = Date.now();
+    if (!force && H && H.shopStock && H.shopStockTs && (now - H.shopStockTs) < SHOP_REFRESH_MS) return;
+    var lvl = H ? H.level : 1;
+    var stock = [], guard = 0;
+    // 20 offres ; les objets doivent être uniques dans la vitrine (pas de doublon d'identité)
+    while (stock.length < SHOP_STOCK_SIZE && guard < 500) {
+      guard++;
+      var it = rollShopItem(lvl);
+      var dup = false;
+      for (var i = 0; i < stock.length; i++) {
+        if (stock[i].id === it.id || (stock[i].name === it.name && stock[i].slot === it.slot && stock[i].rarity === it.rarity)) { dup = true; break; }
+      }
+      if (!dup) stock.push(it);
+    }
+    if (H) { H.shopStock = stock; H.shopStockTs = now; }
+  }
+  function shopStock() {
+    if (!H) return [];
+    if (!H.shopStock) refreshShopStock(true);
+    return H.shopStock;
+  }
+  // Achats et consommables de base toujours disponibles (armurerie fixe)
+  var SHOP = [
+    { id: "gladius",  name: "Gladius (1 main)",   slot: "arme",     hands: 1, atk: 4,  atkBase: 2, atkDice: 4,  def: 0, bonusStats: [{ stat: "str", val: 1 }], cost: 60 },
+    { id: "sica",     name: "Sica courbe (1 main)",slot: "arme",    hands: 1, atk: 7,  atkBase: 4, atkDice: 6,  def: 0, bonusStats: [{ stat: "str", val: 2 }], cost: 140 },
+    { id: "faux",     name: "Faux de guerre (2 mains)", slot: "arme",hands: 2, atk: 24, atkBase: 14, atkDice: 24, def: 0, bonusStats: [{ stat: "str", val: 3 }], cost: 260 },
+    { id: "scutum",   name: "Scutum (bouclier)",  slot: "bouclier", atk: 0, def: 5, bonusStats: [{ stat: "end", val: 1 }], cost: 70 },
+    { id: "galea",    name: "Galea renforcée",      slot: "casque",    atk: 0, def: 3, bonusStats: [{ stat: "agi", val: 1 }], cost: 90 },
+    { id: "lorica",   name: "Lorica de fer",        slot: "armure",    atk: 0, def: 8, bonusStats: [{ stat: "end", val: 2 }], cost: 200 },
+    { id: "manica",   name: "Manica (gant d'arme)", slot: "gant",      atk: 0, def: 1, bonusStats: [{ stat: "str", val: 2 }], cost: 120 },
+    { id: "ocreae",   name: "Ocreae (jambières)",   slot: "jambe",     atk: 0, def: 5, bonusStats: [{ stat: "esq", val: 1 }], cost: 110 },
+    { id: "caligae",  name: "Caligae (chaussures)", slot: "chaussure", atk: 0, def: 2, bonusStats: [{ stat: "agi", val: 2 }], cost: 80 },
+    { id: "amulet",   name: "Amulette du laniste",  slot: "amulette",  atk: 0, def: 2, bonusStats: [{ stat: "cha", val: 2 }], cost: 130 },
+    { id: "earring",  name: "Boucles d'oreilles",   slot: "boucle",    atk: 0, def: 1, bonusStats: [{ stat: "cha", val: 2 }], cost: 100 },
+    { id: "ring",     name: "Anneau de fer",        slot: "bague1",    atk: 0, def: 0, bonusStats: [{ stat: "str", val: 2 }], cost: 95 },
+    { id: "ointment", name: "Onguent de soin (régénère tout)", atk: 0, def: 0, cost: 45, consumable: true }
+  ];
+
+  var COMPANIONS = [
+    { id: "dog",    name: "Chien de guerre",   atk: 3, agi: 5, cost: 80 },
+    { id: "thrall", name: "Esclave thrace",     atk: 5, agi: 4, cost: 150 },
+    { id: "archer", name: "Archer auxiliaire",  atk: 8, agi: 6, cost: 280 }
+  ];
+  var MAX_COMPANIONS = 2;
+
+  // ---- Noms d'objets : nom de base du slot + suffixe selon le tier ----
+  // Nom de base correspondant à l'emplacement (les armes précisent 1 ou 2 mains)
+  var BASE_NAMES = {
+    arme1: "Épée simple", arme2: "Épée lourde",
+    bouclier: "Bouclier", casque: "Casque", armure: "Armure",
+    gant: "Gants", jambe: "Jambières", chaussure: "Bottes",
+    amulette: "Amulette", boucle: "Boucles d'oreilles", bague: "Anneau"
+  };
+  // Suffixes de matériau selon le tier (hors divin)
+  var MATERIALS = {
+    commun: ["de paille", "de bois", "de cuir usé", "de bronze terni", "de toile grossière"],
+    superieur: ["de fer", "de cuir renforcé", "de bronze poli", "d'os sculpté"],
+    epique: ["d'acier trempé", "de fer noir", "d'argent ciselé", "de bronze corinthien"],
+    legendaire: ["d'or martelé", "d'or impérial", "d'écailles de serpent", "de pourpre royale"]
+  };
+  // Les objets divins portent le nom d'un héros, dieu ou figure emblématique de Rome
+  var DIVINE_FIGURES = [
+    "de Caligula", "de César", "d'Auguste", "de Néron", "de Marc-Aurèle",
+    "de Spartacus", "de Crixus", "de Clovis", "de Vercingétorix",
+    "de Mars", "de Jupiter", "de Neptune", "de Minerve", "d'Hercule",
+    "de Vénus", "d'Apollon", "de Janus", "de Romulus"
+  ];
+  function baseNameFor(slot, hands) {
+    if (slot === "arme") return BASE_NAMES[hands === 2 ? "arme2" : "arme1"];
+    if (slot === "bague1" || slot === "bague2") return BASE_NAMES.bague;
+    return BASE_NAMES[slot] || "Équipement";
+  }
+  function rollItemName(slot, hands, rarityId) {
+    var base = baseNameFor(slot, hands);
+    if (rarityId === "divin") {
+      return base + " " + DIVINE_FIGURES[Math.floor(Math.random() * DIVINE_FIGURES.length)];
+    }
+    var mats = MATERIALS[rarityId] || MATERIALS.commun;
+    return base + " " + mats[Math.floor(Math.random() * mats.length)];
+  }
+  var DIVINE_PER_COMBAT = 3;
+  var divineThisCombat = 0;
+
+  // ---- Rareté : commun / supérieur / épique / légendaire / divin ----
+  var RARITIES = [
+    { id: "commun",     label: "Commun",     logCls: "loot-commun",     color: "#b8b0a0", weight: 55, mult: 1.0 },
+    { id: "superieur",  label: "Supérieur",  logCls: "loot-superieur",  color: "#6fd66f", weight: 28, mult: 1.5 },
+    { id: "epique",     label: "Épique",     logCls: "loot-epique",     color: "#6aa9ff", weight: 13, mult: 2.2 },
+    { id: "legendaire", label: "Légendaire", logCls: "loot-legendaire", color: "#ff9a3d", weight: 4,  mult: 3.2 },
+    { id: "divin",      label: "DIVIN",      logCls: "loot-divin",      color: "#ff3b3b", weight: 0,  mult: 5.0 }
+  ];
+  function pickRarity(luckBonus) {
+    // luckBonus augmente surtout les hauts tiers
+    var w = [55, 28 + 8 * (luckBonus || 0), 13 + 8 * (luckBonus || 0), 4 + 4 * (luckBonus || 0)];
+    var sum = w[0] + w[1] + w[2] + w[3];
+    var r = Math.random() * sum;
+    var acc = 0, i;
+    for (i = 0; i < w.length; i++) { acc += w[i]; if (r < acc) return RARITIES[i]; }
+    return RARITIES[0];
+  }
+  function rollLootItem(luckBonus) {
+    var rar = pickRarity(luckBonus || 0);
+    var p = 1 + Math.floor(H.level / 2); // la puissance monte avec le niveau
+    var slot = randomSlot();
+    var isWeapon = slot === "arme";
+    var hands = rollHands(slot);
+    // Armes à 2 mains : attaque ×2 (elles privent du bouclier — le surplus
+    // d'attaque doit compenser le blocage et la défense perdus)
+    var atkMult = (isWeapon && hands === 2) ? 2 : 1;
+    var it = {
+      id: "rare_" + Math.floor(Math.random() * 1e9),
+      name: rollItemName(slot, hands, rar.id), rarity: rar.id, rarityLabel: rar.label, logCls: rar.logCls,
+      slot: slot, hands: hands,
+      // Plus de stat d'attaque fixe : les armes frappent aux dés, le reste porte une armure de base
+      atk: isWeapon ? Math.max(1, Math.round((2 + Math.random() * (2 + p)) * rar.mult * atkMult)) : 0,
+      def: isWeapon ? 0 : Math.max(1, Math.round((2 + Math.random() * (2 + p)) * rar.mult * 0.8)),
+      itemLevel: H.level
+    };
+    if (isWeapon) addWeaponDice(it);
+    // Bonus de stats selon le tier : 1 ligne (commun) à 4 lignes (légendaire)
+    it.bonusStats = rollBonusLines(rar.id, p);
+    return it;
+  }
+  // ---- Nourriture : butin consommable qui rend des PV (pas de rang divin) ----
+  var FOOD_NAMES = ["Miche de pain", "Figues fraîches", "Dattes de Judée", "Pommes croquantes", "Olives marinées", "Fromage de brebis", "Miel des Hybles", "Gibier rôti", "Bouillon d'orge", "Raisins sucrés"];
+  var FOOD_ICON = "🍲";
+  // Soin en points de vie fixes : base + bonus par niveau (suit la progression sans devenir trop puissant)
+  var FOOD_HEALS = { commun: { base: 10, perLvl: 2 }, superieur: { base: 18, perLvl: 3 }, epique: { base: 30, perLvl: 5 }, legendaire: { base: 50, perLvl: 8 } };
+  function foodHealPts(it) {
+    var f = FOOD_HEALS[it.rarity] || FOOD_HEALS.commun;
+    return f.base + H.level * f.perLvl;
+  }
+  function rollFood(luckBonus) {
+    var rar = pickRarity(luckBonus || 0); // jamais divin
+    var n = FOOD_NAMES[Math.floor(Math.random() * FOOD_NAMES.length)];
+    return {
+      id: "food_" + Math.floor(Math.random() * 1e9),
+      name: n, rarity: rar.id, rarityLabel: rar.label, logCls: rar.logCls,
+      food: true, slot: null, hands: 0, atk: 0, def: 0
+    };
+  }
+  // Empile les nourritures identiques (même nom + même rareté) dans le sac :
+  // 10 miches de pain = 1 case avec ×10. Retourne true si une pile a été créée.
+  function stackFood(f) {
+    for (var i = 0; i < H.items.length; i++) {
+      var x = H.items[i];
+      if (x.food && x.name === f.name && x.rarity === f.rarity) {
+        x.qty = (x.qty || 1) + 1;
+        return true;
+      }
+    }
+    f.qty = 1;
+    H.items.push(f);
+    return false;
+  }
+  function eatFood(id) {
+    var idx = -1;
+    for (var i = 0; i < H.items.length; i++) if (H.items[i].id === id) idx = i;
+    if (idx < 0) return;
+    var it = H.items[idx];
+    if (!it.food) return;
+    var heal = foodHealPts(it);
+    var restant = (it.qty || 1) - 1;
+    if (restant > 0) it.qty = restant;
+    else H.items.splice(idx, 1);
+    H.hp = Math.min(maxHpOf(H), H.hp + heal);
+    log(FOOD_ICON + " Tu dévores " + it.name + " [" + it.rarityLabel + "] : +" + heal + " PV ! (" + H.hp + "/" + maxHpOf(H) + ")" + (restant > 0 ? " (il en reste " + restant + ")" : ""), "gold");
+    save(); renderAll();
+  }
+
+  function logLoot(prefix, it) {
+    if (it.food) {
+      log(prefix + it.name + " [" + it.rarityLabel + "] (+" + foodHealPts(it) + " PV).", it.logCls);
+    } else {
+      log(prefix + it.name + " [" + it.rarityLabel + "] (" + bonusTxt(it) + ").", it.logCls);
+    }
+  }
+
+  // Drop divin : 1 % à la mort d'un mini-boss ou boss de tour, max 3 par combat
+  function tryDivineDrop() {
+    // Objets divins : 1 % de chances, sur les mini-boss (étages multiples de 10)
+    // et boss de tour. Le plafond de 3 par combat est conservé.
+    if (!foe.boss) return false;
+    if (divineThisCombat >= DIVINE_PER_COMBAT) return false;
+    if (Math.random() >= 0.01) return false;
+    var p = 1 + Math.floor(H.level / 2);
+    var dSlot = randomSlot();
+    var dHands = rollHands(dSlot);
+    var it = {
+      id: "divin_" + Math.floor(Math.random() * 1e9),
+      name: rollItemName(dSlot, dHands, "divin"),
+      rarity: "divin", rarityLabel: "DIVIN", logCls: "loot-divin", divine: true,
+      slot: dSlot, hands: dHands,
+      // Rang DIVIN : attaque et armure TOUJOURS au maximum du tirage
+      // ((3 + (3+p)) ×5 pour l'attaque, ×4 pour l'armure ; ×2 si arme à 2
+      // mains). Seul le hasard du dé reste au moment de frapper.
+      atk: Math.max(3, Math.round((3 + (3 + p)) * 5 * (dHands === 2 ? 2 : 1))),
+      def: Math.max(3, Math.round((3 + (3 + p)) * 4))
+    };
+    if (it.slot !== "arme") { it.atk = 0; } else { addWeaponDice(it); it.def = 0; }
+    it.bonusStats = rollBonusLines("divin", p);
+    H.items.push(it);
+    divineThisCombat++;
+    logLoot("🔥 UN OBJET DIVIN TOMBE DES CIEUX ! Le boss abandonne : ", it);
+    if (divineThisCombat >= DIVINE_PER_COMBAT) {
+      log("Les dieux ne donneront rien de plus lors de ce combat. (" + DIVINE_PER_COMBAT + "/" + DIVINE_PER_COMBAT + " objets divins)", "sys");
+    }
+    return true;
+  }
+
+  // ---- Adversaires ----
+  // Courbe d'apprentissage : sous le niveau 20, les ennemis sont 25 % plus faibles
+  // pour un début de jeu accessible ; au-delà, difficulté normale
+  function easyMult(lvl) {
+    return lvl < 20 ? 0.75 : 1;
+  }
+
+  // ---- Courbe de puissance fixe des ennemis (inspirée de Gladiatus) ----
+  // Les stats des monstres ne dépendent plus de celles du héros : elles sont
+  // tirées d'un budget fixe par niveau, comme dans Gladiatus où chaque
+  // monstre a des stats propres à son niveau (indépendantes du joueur).
+  // Référence : un héros de niveau L a ~18 + 3×L points de stats de base
+  // (21 au niveau 1, +3 par niveau). Les budgets ennemis se calent sur
+  // cette courbe THÉORIQUE, pas sur le héros réel :
+  // - monstre normal  : 85 %  → battable, on le farm
+  // - mini-boss (×10) : 100 % → équivalent d'un héros de ce niveau
+  // - boss de tour    : 125 % → supérieur, exige un équipement correct
+  function heroCurve(L) { return 18 + 3 * Math.max(1, L); }
+  // Socle EHT : total de stats d'un héros RÉELLEMENT ENTRAÎNÉ attendu à l'étage
+  // global gf (mesuré par simulation : l'or suit le palier, donc l'entraînement
+  // aussi). Ancres : étage 1 → 31 pts, 50 → 266, 100 → 573, 150 → 914,
+  // 200 → 1357, 250 → 2004. Au-delà : +13 pts par étage.
+  var EHT = [[1, 31], [50, 266], [100, 573], [150, 914], [200, 1357], [250, 2004]];
+  function ehtOf(gf) {
+    if (gf <= EHT[0][0]) return EHT[0][1];
+    for (var i = 1; i < EHT.length; i++) if (gf <= EHT[i][0]) {
+      var x0 = EHT[i - 1][0], y0 = EHT[i - 1][1], x1 = EHT[i][0], y1 = EHT[i][1];
+      return y0 + (y1 - y0) * (gf - x0) / (x1 - x0);
+    }
+    return EHT[EHT.length - 1][1] + 13 * (gf - EHT[EHT.length - 1][0]);
+  }
+  function foeBudget(L, kind) {
+    var mult = kind === "boss" ? 1.25 : (kind === "miniboss" ? 1.0 : 0.85);
+    return Math.max(20, Math.round(heroCurve(L) * mult));
+  }
+
+  // Répartit un budget total de stats de façon aléatoire, avec un plancher
+  // (chaque stat reçoit au moins floor(10 %) du total) et le reste aux dés.
+  function spreadStats(total) {
+    var KEYS = ["str", "agi", "end", "cha", "esq"];
+    var floor = Math.max(1, Math.floor(total * 0.10));
+    var s = { str: floor, agi: floor, end: floor, cha: floor, esq: floor };
+    var rest = Math.max(0, total - floor * KEYS.length);
+    // Tirage aléatoire avec répartition non uniforme (méthode des segments)
+    var cuts = [];
+    for (var i = 0; i < KEYS.length - 1; i++) cuts.push(Math.random() * rest);
+    cuts.sort(function (a, b) { return a - b; });
+    var prev = 0;
+    for (var k = 0; k < KEYS.length; k++) {
+      var seg = (k < KEYS.length - 1 ? cuts[k] : rest) - prev;
+      prev = (k < KEYS.length - 1 ? cuts[k] : rest);
+      s[KEYS[k]] += Math.floor(seg);
+    }
+    // Les points perdus par les arrondis vont à une stat au hasard
+    var given = s.str + s.agi + s.end + s.cha + s.esq;
+    s[KEYS[Math.floor(Math.random() * KEYS.length)]] += total - given;
+    return s;
+  }
+  // Répartition PROFILÉE pour les ennemis : contrairement au pur hasard,
+  // chaque stat reçoit une part garantie du budget (avec ±20 % de variance) :
+  // Force 28 %, Agilité 24 %, Endurance 24 %, Charisme 12 %, Esquive 12 %.
+  // Un monstre ne peut plus tirer un profil inoffensif (agi/str au plancher).
+  function spreadFoeStats(total) {
+    var prof = { str: 0.28, agi: 0.24, end: 0.24, cha: 0.12, esq: 0.12 };
+    var s = {}, sum = 0;
+    for (var k in prof) {
+      var v = total * prof[k] * (0.8 + Math.random() * 0.4); // ±20 %
+      s[k] = Math.max(1, Math.floor(v));
+      sum += s[k];
+    }
+    var diff = total - sum;
+    var fixKey = diff > 0 ? "str" : "agi";
+    s[fixKey] = Math.max(1, s[fixKey] + diff); // compense les arrondis
+    return s;
+  }
+
+  function makeFoe(tier) {
+    var names = ["Brutus", "Crixus le Fauve", "Varius", "Le Gaulois", "Spiculus", "Tigris de Gaule", "Nérón le Noir", "Flamma"];
+    var n = names[Math.min(tier - 1, names.length - 1)];
+    var lvl = tier;
+    // Budget fixe par niveau (Gladiatus) : l'adversaire d'arène est un « héros théorique »
+    // de ce palier, jamais une copie des stats du joueur.
+    var foeTotal = foeBudget(lvl, "normal");
+    var st = spreadFoeStats(foeTotal);
+    var f = {
+      name: n, level: lvl,
+      img: FOE_IMGS[Math.min(tier - 1, FOE_IMGS.length - 1)],
+      str: st.str, agi: st.agi, end: st.end, cha: st.cha, esq: st.esq,
+      items: []
+    };
+    if (tier >= 3) f.items.push({ atk: 2, def: 1 });
+    if (tier >= 6) f.items.push({ atk: 3, def: 2 });
+    f.maxHp = maxHpOf(f); f.hp = f.maxHp;
+    return f;
+  }
+
+  // ---- Rival : suit la progression du joueur, mais reste battable ----
+  var RIVAL_NAMES = ["Aulus le Rusé", "Drusus", "Marcus Pugnax", "Cassius Varus", "Leo l'Italique", "Priscus", "Verus", "Hilarus"];
+  function makeRival() {
+    var f = {
+      rival: true,
+      // Un rival est un gladiateur : il emprunte l'illustration d'un champion de l'arène
+      img: FOE_IMGS[Math.floor(Math.random() * FOE_IMGS.length)],
+      name: RIVAL_NAMES[Math.floor(Math.random() * RIVAL_NAMES.length)],
+      level: Math.max(1, H.level - 1 + (Math.random() < 0.3 ? 1 : 0)),
+      items: []
+    };
+    var EH = effOf(H);
+    f.str = Math.max(1, Math.round(EH.str * (0.8 + Math.random() * 0.15)));
+    f.agi = Math.max(1, Math.round(EH.agi * (0.8 + Math.random() * 0.15)));
+    f.end = Math.max(1, Math.round(EH.end * (0.8 + Math.random() * 0.15)));
+    f.cha = Math.max(1, Math.round((EH.cha || 4) * (0.7 + Math.random() * 0.15)));
+    f.esq = Math.max(1, Math.round((EH.esq || 3) * (0.75 + Math.random() * 0.2)));
+    // Le rival porte parfois un bouclier : son esquive devient alors du blocage
+    if (Math.random() < 0.5) {
+      f.equipped = { bouclier: { name: "Scutum usé", atk: 0, def: 4 } };
+    }
+    // Même armurerie de base que toi, sans tes objets rares
+    var playerAtk = 0;
+    var pEq = equippedList(H);
+    for (var i = 0; i < pEq.length; i++) if (!pEq[i].rare) playerAtk += pEq[i].atk || 0;
+    if (playerAtk > 0) f.items.push({ atk: Math.round(playerAtk * 0.8) });
+    f.maxHp = Math.round(maxHpOf(f) * 0.92); // un peu moins de vie que la formule
+    f.hp = f.maxHp;
+    return f;
+  }
+
+  // ---- Mode Aventure : la Grande Tour ----
+  // La Grande Tour est infinie : les tours et les niveaux n'ont pas de plafond
+  var MONSTER_NAMES = [
+    // 🐺 Bêtes
+    "Rat géant", "Loup affamé", "Sanglier furieux",
+    // 🐍 Venimeux
+    "Araignée venimeuse", "Serpent des sables", "Scorpion géant",
+    // 👻 Morts-vivants
+    "Spectre errant", "Goule hurlante", "Ombre rôdeuse",
+    // 🗿 Golems
+    "Golem d'argile", "Golem de pierre", "Golem de bronze",
+    // 🐉 Créatures fabuleuses
+    "Harpie", "Cyclope", "Chimère"
+  ];
+  var BOSS_NAMES = ["Le Gardien des Sables", "L'Ombre du Donjon", "La Gorgone", "Le Colosse de Bronze", "Le Faucheur d'Âmes", "La Bête des Abysses"];
+
+  // Familles de monstres : tuer plusieurs fois la même famille donne des bonus de chasse
+  // Familles de monstres : 3 créatures par famille (même nom d'ordre que MONSTER_NAMES)
+  var MONSTER_FAMILIES = [
+    "betes", "betes", "betes",
+    "venimeux", "venimeux", "venimeux",
+    "morts", "morts", "morts",
+    "golems", "golems", "golems",
+    "fabuleux", "fabuleux", "fabuleux"
+  ];
+  var FAMILY_LABELS = {
+    betes:    { label: "Bêtes",       icon: "🐺" },
+    venimeux: { label: "Venimeux",    icon: "🐍" },
+    morts:    { label: "Morts-vivants", icon: "👻" },
+    golems:   { label: "Golems",      icon: "🗿" },
+    fabuleux: { label: "Créatures fabuleuses", icon: "🐉" },
+    boss:     { label: "Boss",        icon: "💀" },
+    // ---- 30 familles de donjons : UNE par donjon (identité propre) ----
+    cloaques:     { label: "Vermine des cloaques",  icon: "🐀" },
+    felins:       { label: "Félins",                icon: "🦁" },
+    arachnides:   { label: "Arachnides",            icon: "🕷" },
+    insectes:     { label: "Insectes",              icon: "🐜" },
+    revenants:    { label: "Revenants",             icon: "💀" },
+    vampires:     { label: "Vampires",              icon: "🦇" },
+    colosses:     { label: "Colosses de pierre",   icon: "🗿" },
+    machines:     { label: "Automates",             icon: "⚙" },
+    aeriens:      { label: "Créatures ailées",      icon: "🪶" },
+    mythiques:    { label: "Créatures mythiques",   icon: "✨" },
+    aquatiques:   { label: "Créatures aquatiques", icon: "🌊" },
+    ursides:      { label: "Ursidés",               icon: "🐻" },
+    reptiles:     { label: "Reptiles",              icon: "🦎" },
+    ophidiens:    { label: "Ophidiens",             icon: "🐍" },
+    spectres:     { label: "Spectres",              icon: "🌫" },
+    ossements:    { label: "Légion d'ossements",    icon: "🦴" },
+    glace:        { label: "Créatures de glace",    icon: "❄" },
+    feu:          { label: "Créatures de feu",      icon: "🔥" },
+    elementaires: { label: "Élémentaires",          icon: "🌪" },
+    draconides:   { label: "Draconides",             icon: "🐲" },
+    abysses:      { label: "Monstres des abysses",  icon: "🦑" },
+    pantheres:    { label: "Félins des jungles",    icon: "🐆" },
+    batraciens:   { label: "Batraciens",            icon: "🐸" },
+    essaims:      { label: "Essaims",               icon: "🐝" },
+    damnes:       { label: "Âmes damnées",          icon: "⛓" },
+    nocturnes:    { label: "Prédateurs nocturnes", icon: "🌙" },
+    boreens:      { label: "Peuples du Nord",       icon: "🌨" },
+    antiques:     { label: "Gardiens antiques",     icon: "🏛" },
+    cendres:      { label: "Créatures de cendres",  icon: "🕯" },
+    hydrides:     { label: "Hydres et gorgones",    icon: "🔱" }
+  };
+
+  // ---- DONJONS : zone de farm (XP réduite, butin garanti, divin sur le boss) ----
+  // Chaque donjon se débloque tous les 10 niveaux (1, 11, 21... 91).
+  // 3 difficultés au choix : le rang du monstre suit la difficulté
+  // (facile → « junior », normal → nom de base, difficile → « alpha »),
+  // le boss de fin porte son nom de souverain (« Roi des loups »...).
+  var DGN_DIFFS = {
+    // Budgets calés par simulation Monte-Carlo (2000 runs/palier) : un run = 10-20
+    // victoires consécutives, donc bien plus exigeant qu'un étage de tour.
+    // Cible au niveau exact du palier : facile ~100 %, normal ~25-50 %, difficile ~2-5 %
+    // (les monstres suivent à 55 % les stats réelles du héros → auto-équilibrage au sur-niveau).
+    facile:    { label: "Facile",    icon: "🟢", budget: 0.45, gold: 0.8, xp: 1.0, luck: 0 },
+    normal:    { label: "Normal",    icon: "🟡", budget: 0.85, gold: 1.0, xp: 1.5, luck: 0 },
+    difficile: { label: "Difficile", icon: "🔴", budget: 1.05, gold: 1.3, xp: 2.0, luck: 1 }
+  };
+  var DGN_SUFFIX = { facile: " junior", normal: "", difficile: " alpha" };
+  var DUNGEONS = [
+    { id: 1,  name: "Les Égouts de Rome",     family: "cloaques",   level: 1,  boss: "Roi des rats",             mobs: ["Rat géant", "Loup affamé", "Sanglier furieux"] },
+    { id: 2,  name: "La Fosse aux Lions",      family: "felins",    level: 11, boss: "Lion primordial",          mobs: ["Lion affamé", "Panthère noire", "Tigre du Gange"] },
+    { id: 3,  name: "Le Nid des Arachnides",   family: "arachnides", level: 21, boss: "Reine des araignées",      mobs: ["Araignée venimeuse", "Serpent des sables", "Scorpion géant"] },
+    { id: 4,  name: "La Vallée des Scorpions", family: "insectes", level: 31, boss: "Empereur des scorpions",  mobs: ["Fourmi guerrière", "Mante religieuse", "Scarabée de guerre"] },
+    { id: 5,  name: "Les Catacombes Oubliées", family: "revenants", level: 41, boss: "Roi des morts-vivants",    mobs: ["Spectre errant", "Goule hurlante", "Ombre rôdeuse"] },
+    { id: 6,  name: "La Crypte Hurlante",      family: "vampires", level: 51, boss: "Maître des vampires",     mobs: ["Chauve-souris géante", "Vampire des cryptes", "Strige vorace"] },
+    { id: 7,  name: "La Carrière des Golems",  family: "colosses",  level: 61, boss: "Colosse des golems",       mobs: ["Golem d'argile", "Golem de pierre", "Golem de bronze"] },
+    { id: 8,  name: "La Forge de Bronze",       family: "machines", level: 71, boss: "Titan de bronze",          mobs: ["Automate de bronze", "Sentinelle d'airain", "Garde de fer"] },
+    { id: 9,  name: "Les Cimes des Harpies",    family: "aeriens",  level: 81, boss: "Reine des harpies",        mobs: ["Harpie", "Cyclope", "Chimère"] },
+    { id: 10, name: "L'Antre du Minotaure",   family: "mythiques", level: 91, boss: "Minotaure primordial",    mobs: ["Minotaure", "Griffon", "Centaure"] },
+    // ---- Extension : 20 donjons supplémentaires, paliers 101 → 291 ----
+    // Chaque monstre est UNIQUE : les créatures existantes ne servent que dans
+    // un seul donjon (d1, d3, d5, d7, d9) ; tous les autres donjons ont leurs
+    // propres créatures et de nouvelles familles (félins, insectes, vampires...).
+    { id: 11, name: "Les Cloaques Profondes",    family: "aquatiques", level: 101, boss: "Dévoreur des profondeurs", mobs: ["Anguille visqueuse", "Crabe des cloaques", "Brochet géant"] },
+    { id: 12, name: "Le Mont des Ours",          family: "ursides",   level: 111, boss: "Patriarche des ours",      mobs: ["Ours cavernicole", "Bison des steppes", "Auroch furieux"] },
+    { id: 13, name: "La Serre du Basilic",       family: "reptiles", level: 121, boss: "Basilic royal",           mobs: ["Iguane du désert", "Caméléon tueur", "Gecko des ruines"] },
+    { id: 14, name: "Le Désert des Najas",       family: "ophidiens", level: 131, boss: "Naja impérial",           mobs: ["Naja cracheur", "Vipère des dunes", "Mille-pattes géant"] },
+    { id: 15, name: "Le Mausolée des Traîtres",  family: "spectres", level: 141, boss: "Archonte des spectres",    mobs: ["Lémure hargneux", "Âme en peine", "Zombie putride"] },
+    { id: 16, name: "La Nécropole Écarlate",     family: "ossements", level: 151, boss: "Souveraine des morts",    mobs: ["Squelette légionnaire", "Momie desséchée", "Crâne hurlant"] },
+    { id: 17, name: "Les Glaciers du Nord",      family: "glace",    level: 161, boss: "Reine du gel",            mobs: ["Yéti des monts", "Esprit du gel", "Léopard des neiges"] },
+    { id: 18, name: "La Forge d'Obsidienne",     family: "feu",      level: 171, boss: "Colosse d'obsidienne",    mobs: ["Salamandre de lave", "Chien infernal", "Braise rampante"] },
+    { id: 19, name: "Les Tempêtes de Sable",     family: "elementaires", level: 181, boss: "Seigneur des tempêtes", mobs: ["Élémentaire de poussière", "Djinn mineur", "Tourbillon vivant"] },
+    { id: 20, name: "Le Volcan des Dragons",     family: "draconides", level: 191, boss: "Ancien des dragons",      mobs: ["Dragonnet", "Wyverne", "Drake de lave"] },
+    { id: 21, name: "Les Grottes Sous-Marines",  family: "abysses", level: 201, boss: "Kraken des abysses",    mobs: ["Poulpe géant", "Requin des abysses", "Serpent de mer"] },
+    { id: 22, name: "Les Jungles Cachées",       family: "pantheres", level: 211, boss: "Faucheur des jungles",     mobs: ["Lynx rôdeur", "Guépard des sables", "Léopard tacheté"] },
+    { id: 23, name: "Le Marais des Miasmes",     family: "batraciens", level: 221, boss: "Reine des miasmes",       mobs: ["Anaconda du marais", "Caïman boueux", "Tortue carnivore"] },
+    { id: 24, name: "La Ruche Maudite",          family: "essaims", level: 231, boss: "Reine de la ruche",      mobs: ["Guêpe assassine", "Frelon géant", "Sauterelle de guerre"] },
+    { id: 25, name: "Les Oubliettes du Nécromant", family: "damnes",  level: 241, boss: "Nécromant suprême",       mobs: ["Zombie enchaîné", "Crâne flottant", "Main rampante"] },
+    { id: 26, name: "Le Perchoir des Striges",   family: "nocturnes", level: 251, boss: "Prince de la nuit",      mobs: ["Vampire noble", "Aile de nuit", "Sangsue volante"] },
+    { id: 27, name: "Les Landes Gelées",         family: "boreens", level: 261, boss: "Monarque des glaces",     mobs: ["Marcheur des neiges", "Revenant gelé", "Sorcière des glaces"] },
+    { id: 28, name: "La Cité Enterrée",          family: "antiques", level: 271, boss: "Automate primordial",      mobs: ["Automate rouillé", "Arbalète vivante", "Statue animée"] },
+    { id: 29, name: "Le Nid du Phénix",          family: "cendres", level: 281, boss: "Phénix renaissant",       mobs: ["Oiseau de feu", "Cendre animée", "Étincelle vivante"] },
+    { id: 30, name: "Le Temple de l'Hydre",     family: "hydrides", level: 291, boss: "Hydre primordiale",      mobs: ["Hydre mineure", "Gorgone", "Sirène mortelle"] }
+  ];
+  // Échelle d'or d'un donjon selon son palier : ×1 (1-41) · ×2,2 (51-91) ·
+  // ×(palier/46) au-delà (101 → 2,2 … 291 → 6,3). Calibrée par simulation pour
+  // que l'or cumulé des donjons 1..N ≈ 2,5 × le coût de maxer une stat au
+  // niveau N (vérifié palier par palier : ratio 2,5 → 3,1 sur toute la carrière).
+  function dgnGoldScale(dl) {
+    if (dl < 51) return 1;
+    if (dl <= 91) return 2.2;
+    return Math.max(2.2, Math.round((dl / 46) * 100) / 100);
+  }
+  // ---- Vignettes placeholder des nouveaux monstres de donjons ----
+  // Les créatures inédites (familles des 30 donjons) n'ont pas encore
+  // d'illustration : on génère une vignette SVG « à la gladiateur » (icône de
+  // la famille + nom) directement dans le navigateur, comme les avatars de la
+  // page de création. Pas de fichier à télécharger pour l'instant.
+  // ✅ Pour intégrer les VRAIES images plus tard : dépose-les dans images/ et
+  // renseigne le tableau ci-dessous (clé = nom EXACT du monstre/boss).
+  var DGN_MOB_IMGS = {
+    // Donjon 2 — La Fosse aux Lions (lot 1 validé)
+    "Lion affamé": "images/monstre-16-lion.jpg",
+    "Panthère noire": "images/monstre-17-panthere.jpg",
+    "Tigre du Gange": "images/monstre-18-tigre.jpg",
+    "Lion primordial": "images/boss-07-lion-primordial.jpg",
+    // Donjon 4 — La Vallée des Scorpions (lot 2 validé)
+    "Fourmi guerrière": "images/monstre-19-fourmi.jpg",
+    "Mante religieuse": "images/monstre-20-mante.jpg",
+    "Scarabée de guerre": "images/monstre-21-scarabée.jpg",
+    "Empereur des scorpions": "images/boss-08-empereur-scorpions.jpg",
+    // Donjon 6 — La Crypte Hurlante (lot 3 validé)
+    "Chauve-souris géante": "images/monstre-22-chauve-souris.jpg",
+    "Vampire des cryptes": "images/monstre-23-vampire-cryptes.jpg",
+    "Strige vorace": "images/monstre-24-strige.jpg",
+    "Maître des vampires": "images/boss-09-maitre-vampires.jpg",
+    // Donjon 8 — La Forge de Bronze (lot 4 validé)
+    "Automate de bronze": "images/monstre-25-automate-bronze.jpg",
+    "Sentinelle d'airain": "images/monstre-26-sentinelle-airain.jpg",
+    "Garde de fer": "images/monstre-27-garde-fer.jpg",
+    "Titan de bronze": "images/boss-10-titan-bronze.jpg",
+    // Donjon 10 — L'Antre du Minotaure (lot 5 validé)
+    "Minotaure": "images/monstre-28-minotaure.jpg",
+    "Griffon": "images/monstre-29-griffon.jpg",
+    "Centaure": "images/monstre-30-centaure.jpg",
+    "Minotaure primordial": "images/boss-11-minotaure-primordial.jpg",
+    // Donjon 11 — Les Égouts Profonds (lot 6 validé)
+    "Anguille visqueuse": "images/monstre-31-anguille.jpg",
+    "Crabe des cloaques": "images/monstre-32-crabe-cloaques.jpg",
+    "Brochet géant": "images/monstre-33-brochet.jpg",
+    "Dévoreur des profondeurs": "images/boss-12-devoreur-profondeurs.jpg",
+    // Donjon 12 — Le Mont des Ours (lot 7 partiel : monstres 34-35 validés)
+    "Ours cavernicole": "images/monstre-34-ours-cavernicole.jpg",
+    "Bison des steppes": "images/monstre-35-bison-steppes.jpg"
+  };
+  // Vignette SVG d'un monstre de donjon : icône de sa famille + premier mot du nom
+  function dgnMobImg(name, family) {
+    if (DGN_MOB_IMGS[name]) return DGN_MOB_IMGS[name];
+    var famInfo = FAMILY_LABELS[family] || { icon: "❔" };
+    var short = name.split(" ")[0];
+    var svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'>" +
+      "<rect width='120' height='120' fill='#16100a'/>" +
+      "<circle cx='60' cy='58' r='50' fill='#241a0c' stroke='#6e5b3a' stroke-width='2'/>" +
+      "<text x='60' y='72' font-size='38' text-anchor='middle'>" + famInfo.icon + "</text>" +
+      "<text x='60' y='104' font-size='9' fill='#a08a63' text-anchor='middle'>" + short + "</text>" +
+      "</svg>";
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+  // Vignette SVG d'un boss de donjon : cadre rouge, icône de la famille + 💀
+  function dgnBossImg(name, family) {
+    if (DGN_MOB_IMGS[name]) return DGN_MOB_IMGS[name];
+    var famInfo = FAMILY_LABELS[family] || { icon: "❔" };
+    var short = name.split(" ")[0];
+    var svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'>" +
+      "<rect width='120' height='120' fill='#160a08'/>" +
+      "<circle cx='60' cy='58' r='50' fill='#2a100c' stroke='#8b1a1a' stroke-width='3'/>" +
+      "<text x='38' y='70' font-size='30' text-anchor='middle'>" + famInfo.icon + "</text>" +
+      "<text x='78' y='74' font-size='26' text-anchor='middle'>💀</text>" +
+      "<text x='60' y='104' font-size='9' fill='#d46a4e' text-anchor='middle'>" + short + "</text>" +
+      "</svg>";
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+  // Génère un monstre de donjon : budget hybride calé sur le palier du donjon,
+  // multiplié par la difficulté. 15 % de monstres ÉLITES (budget ×1,4).
+  function makeDungeonMonster(dId, diff, isBoss) {
+    var D = DUNGEONS[dId - 1];
+    var dl = D.level; // palier du donjon
+    var DF = DGN_DIFFS[diff];
+    var isElite = !isBoss && Math.random() < 0.15;
+    var kind = isBoss ? "boss" : (isElite ? "miniboss" : "normal");
+    var hBase = H ? (H.str + H.agi + H.end + (H.cha || 0) + (H.esq || 0)) : 0;
+    var km = (kind === "boss" ? 1.25 : (isElite ? 1.0 : 0.8)) * DF.budget * (isElite ? 1.4 : 1);
+    var monTotal = Math.max(10, Math.round(km * (0.5 * ehtOf(dl) + 0.55 * (hBase || ehtOf(dl)))));
+    // Profil identique aux monstres de tour : agi fixe (20 %), variance ±20 % ailleurs
+    var st = { agi: Math.max(1, Math.floor(monTotal * 0.20)) };
+    var pf = { str: 0.38, end: 0.24, cha: 0.10, esq: 0.16 };
+    var psum = st.agi;
+    for (var pk in pf) {
+      var pv = monTotal * pf[pk] * (0.8 + Math.random() * 0.4);
+      st[pk] = Math.max(1, Math.floor(pv)); psum += st[pk];
+    }
+    st.str = Math.max(1, st.str + (monTotal - psum));
+    // Nom : rang selon la difficulté + préfixe Élite le cas échéant
+    var baseName = isBoss ? D.boss : D.mobs[Math.floor(Math.random() * D.mobs.length)];
+    var fName = isBoss ? baseName : baseName + DGN_SUFFIX[diff];
+    if (isElite) fName = "✦Élite✦ " + fName;
+    // Image : créature du bestiaire si elle existe, sinon vignette SVG
+    // placeholder (icône de la famille + nom) en attendant les vraies images
+    var nIdx = MONSTER_NAMES.indexOf(baseName);
+    var f = {
+      adv: true, boss: isBoss, dgn: true, dgnDiff: diff, dgnElite: isElite,
+      img: isBoss ? dgnBossImg(baseName, D.family)
+        : (nIdx >= 0 ? MONSTER_IMGS[nIdx] : dgnMobImg(baseName, D.family)),
+      name: fName,
+      family: D.family,
+      level: dl, bl: dl, zone: "donjon",
+      str: st.str, agi: st.agi, end: st.end, cha: st.cha, esq: st.esq,
+      items: []
+    };
+    // Armement à l'échelle du palier (identique à la tour)
+    f.items.push({ atkBase: 2 + Math.floor(dl / 5), atkDice: Math.min(80, Math.max(2, dl)), def: 1 + Math.floor(dl / 8) });
+    f.maxHp = Math.round(maxHpOf(f) * (isBoss ? 1.5 : (isElite ? 1.4 : 1.3)));
+    f.hp = f.maxHp;
+    return f;
+  }
+  // Titres de chasse : gagnés à certains paliers de victimes par famille
+  // Chaque titre accorde un bonus d'attaque contre la famille concernée :
+  // +2 % par titre, plafond +10 % (5 titres, le dernier à 500 victimes)
+  var FAMILY_TITLES = {
+    betes:    ["Dompteur", "Fléau des Bêtes", "Roi des Arènes Sauvages", "Exterminateur", "Légende des Bêtes"],
+    venimeux: ["Herpétologiste", "Chasseur de Serpents", "MAÎTRE DES VENINS", "Antidote Vivant", "Légende des Venins"],
+    morts:    ["Exorciste", "Pourfendeur d'Esprits", "Bain de Sang", "Nécromancien Renégat", "Légende des Morts"],
+    golems:   ["Tailleur de Pierre", "Broyeur de Golems", "Écrase-Montagnes", "Fondeur Divin", "Légende des Golems"],
+    fabuleux: ["Mythologue", "Tueur de Chimères", "Casseur de Légendes", "Dompteur de Titans", "Légende des Mythes"],
+    boss:     ["Geôlier", "Fléau des Boss", "Terreur des Donjons", "Faucheur de Colosses", "Légende des Boss"],
+    // 30 familles de donjons : mêmes paliers de titres (10/50/150/300/500 victimes)
+    cloaques:     ["Chasseur de rats", "Fléau des Égouts", "Roi des Cloaques", "Purificateur", "Légende des Cloaques"],
+    felins:       ["Dompteur de fauves", "Fléau des Félins", "Roi des Fosses", "Griffe d'Or", "Légende des Félins"],
+    arachnides:   ["Araignologue", "Démonteur de Toiles", "MAÎTRE DES TOILES", "Écraseur de Nids", "Légende des Toiles"],
+    insectes:     ["Entomologiste", "Chasseur d'Insectes", "MAÎTRE DES ESSAIMS", "Écraseur de Fourmilières", "Légende des Insectes"],
+    revenants:    ["Exorciste", "Apaiseur des Morts", "Briseur de Chaînes", "Chasseur de Revenants", "Légende des Catacombes"],
+    vampires:     ["Vampirologue", "Chasseur de Nuits", "MAÎTRE DES STRIGES", "Pique-Aile", "Légende des Cryptes"],
+    colosses:     ["Briseur de Colosses", "Tailleur de Montagnes", "Foreur de Carrières", "MAÎTRE DES CARRIÈRES", "Légende des Colosses"],
+    machines:     ["Mécanicien", "Saboteur d'Engrenages", "Broyeur d'Automates", "MAÎTRE DES ROUES", "Légende des Forges"],
+    aeriens:      ["Fauconnier", "Chasseur d'Ombres", "MAÎTRE DES CIMES", "Briseur d'Ailes", "Légende des Cimes"],
+    mythiques:    ["Mythographe", "Tueur de Légendes", "Casseur de Mythes", "Dompteur de Titans", "Légende des Labyrinthes"],
+    aquatiques:   ["Pêcheur de fond", "Chasseur des Cloaques Profondes", "MAÎTRE DES MARÉES", "Fléau des Cavernes d'Eau", "Légende des Profondeurs"],
+    ursides:      ["Dompteur d'Ours", "Briseur de Griffes", "MAÎTRE DES OURS", "Chasseur de Cavernes", "Légende des Monts"],
+    reptiles:     ["Écailler", "Chasseur d'Écailles", "MAÎTRE DES SERRES", "Tueur de Lézards", "Légende des Jungles Sèches"],
+    ophidiens:    ["Serpentaire", "Charmeur de Serpents", "MAÎTRE DES SABLES", "Tueur de Najas", "Légende des Dunes"],
+    spectres:     ["Médium", "Chasseur de Spectres", "Exorciste Suprême", "Bannisseur", "Légende des Mausolées"],
+    ossements:    ["Ostéologue", "Broyeur d'Os", "MAÎTRE DES OSSUAIRES", "Fossoyeur", "Légende des Nécropoles"],
+    glace:        ["Guide des Neiges", "Brise-Glace", "MAÎTRE DU GEL", "Souffle Polaire", "Légende des Glaciers"],
+    feu:          ["Vulcanologue", "Marcheur des Braises", "MAÎTRE DES FLAMMES", "Éteigneur de Brasiers", "Légende des Volcans"],
+    elementaires: ["Alchimiste", "Dompteur d'Éléments", "MAÎTRE DU CHAOS", "Briseur de Tempêtes", "Légende des Éléments"],
+    draconides:   ["Dracologue", "Écailleur", "MAÎTRE DES VOLCANS", "Tueur de Dragons", "Légende des Dragons"],
+    abysses:      ["Plongeur des Abysses", "Chasseur de Krakens", "MAÎTRE DES PROFONDEURS", "Dompteur de Léviathans", "Légende des Abysses"],
+    pantheres:    ["Traqueur", "Chasseur de Panthères", "MAÎTRE DES JUNGLES", "Œil-du-Fauve", "Légende des Jungles"],
+    batraciens:   ["Batrachologue", "Pêcheur de Monstres", "MAÎTRE DES MARAIS", "Assécheur", "Légende des Marais"],
+    essaims:      ["Apiologue", "Fumigateur", "MAÎTRE DES RUCHES", "Récolteur Royal", "Légende des Essaims"],
+    damnes:       ["Rédempteur", "Chasseur de Damnés", "Bénisseur", "Briseur de Malédictions", "Légende des Oubliettes"],
+    nocturnes:    ["Veilleur", "Chasseur Nocturne", "MAÎTRE DES OMBRES", "Aiguillon", "Légende des Perchoirs"],
+    boreens:      ["Guide du Grand Nord", "Chasseur de Yétis", "MAÎTRE DES NEIGES", "Briseur de Blizzards", "Légende du Nord"],
+    antiques:     ["Archéologue", "Éveilleur de Statues", "MAÎTRE DES RUINES", "Balafré du Passé", "Légende des Cités Perdues"],
+    cendres:      ["Ramonier", "Marcheur sur Braises", "MAÎTRE DES CENDRES", "Éteigneur", "Légende du Phénix"],
+    hydrides:     ["Écuyer des Hydres", "Coupeur de Têtes", "MAÎTRE DES TEMPLES", "Chasseur de Sirènes", "Légende des Hydres"]
+  };
+  var TITLE_THRESHOLDS = [10, 50, 150, 300, 500]; // victimes nécessaires par palier
+  function familyTitle(family) {
+    var kills = (H.familyKills && H.familyKills[family]) || 0;
+    var lvl = 0;
+    for (var i = 0; i < TITLE_THRESHOLDS.length; i++) {
+      if (kills >= TITLE_THRESHOLDS[i]) lvl = i + 1;
+    }
+    return { level: lvl, name: lvl > 0 ? FAMILY_TITLES[family][lvl - 1] : null, atkBonus: Math.min(0.10, lvl * 0.02) };
+  }
+  // Retourne le bonus d'attaque du héros contre une famille précise (titres uniquement)
+  function heroTitleAtkBonus(family) {
+    if (!family || !H.gender) return 0; // seul le héros a des titres
+    return familyTitle(family).atkBonus;
+  }
+
+  // ---- Maîtrises de donjon : 10 / 20 / 50 complétions, toutes difficultés ----
+  // Chaque palier accorde +10 % / +20 % / +30 % d'or et d'XP dans CE donjon
+  // (remplace l'ancien bonus de chasse par famille).
+  var DGN_MASTERY_TIERS = [10, 20, 50];
+  function dgnClears(dId) {
+    if (!H.dgn) H.dgn = { id: null, diff: null, prog: 0, need: 0, cleared: {}, clears: {} };
+    if (!H.dgn.clears) H.dgn.clears = {};
+    return H.dgn.clears[dId] || 0;
+  }
+  function dgnMastery(dId) {
+    var n = dgnClears(dId), tier = 0;
+    for (var mi = 0; mi < DGN_MASTERY_TIERS.length; mi++) if (n >= DGN_MASTERY_TIERS[mi]) tier = mi + 1;
+    return { count: n, tier: tier, bonus: tier * 0.10, next: DGN_MASTERY_TIERS[Math.min(tier, DGN_MASTERY_TIERS.length - 1)] };
+  }
+  // Enregistre une complétion (boss vaincu) : incrémente le compteur du donjon
+  function registerDgnClear(dId) {
+    dgnClears(dId); // s'assure que la structure existe
+    H.dgn.clears[dId] = (H.dgn.clears[dId] || 0) + 1;
+    return dgnMastery(dId);
+  }
+  // Comptage des victimes par famille : sert UNIQUEMENT aux titres de chasse
+  function registerFamilyKill(family) {
+    if (!family) return null;
+    if (!H.familyKills) H.familyKills = {};
+    H.familyKills[family] = (H.familyKills[family] || 0) + 1;
+    return familyTitle(family);
+  }
+
+  function makeMonster(tower, floor) {
+    var gf = (tower - 1) * 50 + floor;
+    var isBoss = floor % 10 === 0;
+    // Zone test = tour infinie : grand boss tous les 50 étages (et pas seulement au 50e)
+    var isTowerBoss = (advZone === "test") ? (floor % 50 === 0 && floor > 0) : (floor === 50);
+    var kind = isTowerBoss ? "boss" : (isBoss ? "miniboss" : "normal");
+    var nIdx = Math.min(MONSTER_NAMES.length - 1, Math.floor((gf - 1) / 12));
+    // Au-delà du premier cycle, les boss reviennent en « Renaissance » : plus puissants
+    var bIdx = Math.floor((gf - 10) / 50);
+    var bCycle = Math.floor(bIdx / BOSS_NAMES.length);
+    var bName = BOSS_NAMES[bIdx % BOSS_NAMES.length] +
+      (bCycle > 0 ? " — Renaissance " + ["II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"][Math.min(bCycle - 1, 8)] + "+" : "");
+    // Budget fixe par étage (courbe Gladiatus) : monstres 85 %, mini-boss 100 %,
+    // boss de tour 125 % d'un héros théorique du même niveau. Les stats ne
+    // dépendent plus du héros réel : pas de boucle de rétroaction.
+    // Tours 2+ : les monstres ont une AVANCE de niveaux théoriques au-dessus
+    // de la tour 1 — la re-farm d'une tour déjà maîtrisée ne doit pas être
+    // triviale. L'avance est calibrée par tour (simulée sur 1500 runs) :
+    // - tour 2 : +32  (héros ~niveau 92  à l'étage 100, ~5 morts)
+    // - tour 3 : +140 (héros ~niveau 139 à l'étage 150, ~4,5 morts)
+    // - tour 4 : +280 (héros ~niveau 216 à l'étage 200, ~6 morts)
+    // - tour 5 : +460 (héros ~niveau 241 à l'étage 250, ~8 morts)
+    // - tours 6+ : extrapolation (+180 par tour supplémentaire)
+    // Calibrage recalibré après le passage de l'entraînement en courbe
+    // quadratique (0,08 × valeur²) : les héros s'entraînent massivement,
+    // les monstres des tours hautes doivent compenser.
+    // L'or et l'XP suivent ce niveau théorique (bl) : affronter du plus fort
+    // paie plus. XP majorée : +18 % en tours 2-3, neutre en tour 4.
+    // EXCEPTION tour 5 : l'XP y est basée sur l'étage brut (gf) avec un
+    // coefficient ×0,6 — le héros finit la tour 5 au niveau de l'étage
+    // final (~240-250).
+    var TOWER_ADV = { 2: 50, 3: 140, 4: 280, 5: 460 };
+    var adv = TOWER_ADV[tower];
+    if (tower <= 1) adv = 0; // la tour 1 est la référence : aucune avance
+    else if (adv === undefined) adv = 460 + (tower - 5) * 180;
+    var bl = gf + adv;
+    // ---- Budget hybride (calibré par simulation Monte-Carlo, 200 runs × 5 tours) ----
+    // 50 % de socle fixe EHT(palier) + 55 % des stats de base RÉELLES du héros :
+    // - l'entraînement reste rentable (on garde ~80 % de chaque point d'avance)
+    // - mais aucun grind ne peut rendre le contenu trivial : les monstres
+    //   suivent la puissance réelle du gladiateur.
+    // Multiplicateurs : normal ×0,8, mini-boss ×1,0, boss ×1,25.
+    var hBase = H ? (H.str + H.agi + H.end + (H.cha || 0) + (H.esq || 0)) : 0;
+    var socle = ehtOf(gf) * Math.min(1, gf / 50); // rampe d'entrée : tour 1 progressive
+    var km = kind === "boss" ? 1.25 : (kind === "miniboss" ? 1.0 : 0.8);
+    var monTotal = Math.max(20, Math.round(km * (0.5 * socle + 0.55 * (hBase || ehtOf(gf)))));
+    // Profil : Agilité FIXE (20 %) pour un toucher stable des deux côtés —
+    // la variance ±20 % ne porte que sur force/endurance/charisme/esquive.
+    var st = { agi: Math.max(1, Math.floor(monTotal * 0.20)) };
+    var pf = { str: 0.38, end: 0.24, cha: 0.10, esq: 0.16 };
+    var psum = st.agi;
+    for (var pk in pf) {
+      var pv = monTotal * pf[pk] * (0.8 + Math.random() * 0.4);
+      st[pk] = Math.max(1, Math.floor(pv)); psum += st[pk];
+    }
+    st.str = Math.max(1, st.str + (monTotal - psum)); // compense les arrondis
+    var f = {
+      adv: true, boss: isBoss,
+      img: isBoss
+        ? BOSS_IMGS[bIdx % BOSS_IMGS.length]
+        : MONSTER_IMGS[Math.min(nIdx, MONSTER_IMGS.length - 1)],
+      name: isBoss
+        ? bName + (isTowerBoss ? " (BOSS DE TOUR)" : " (BOSS)")
+        : MONSTER_NAMES[nIdx],
+      family: isBoss ? "boss" : MONSTER_FAMILIES[nIdx],
+      level: gf, bl: bl, zone: advZone,
+      str: st.str, agi: st.agi, end: st.end, cha: st.cha, esq: st.esq,
+      items: []
+    };
+    // Armement : TOUS les monstres portent une vraie arme à dés (comme le
+    // héros), à l'échelle du palier — plus de monstres désarmés en tour 2+.
+    f.items.push({ atkBase: 2 + Math.floor(gf / 5), atkDice: Math.min(80, Math.max(2, gf)), def: 1 + Math.floor(gf / 8) });
+    // PV : socle de l'Endurance tirée × rang (normal ×1,3, mini-boss ×1,5,
+    // boss de tour ×1,8) — calibré pour des combats de 2-4 tours.
+    f.maxHp = Math.round(maxHpOf(f) * (isTowerBoss ? 1.8 : (isBoss ? 1.5 : 1.3)));
+    f.hp = f.maxHp;
+    return f;
+  }
+
+  // ---- Journal ----
+  function log(msg, cls) {
+    var d = document.createElement("div");
+    d.className = cls || "";
+    d.textContent = msg;
+    $("log").appendChild(d);
+    $("log").scrollTop = $("log").scrollHeight;
+  }
+
+  // ---- Combat ----
+  // ---- Attaques multiples (charisme, comme dans Gladiatus) ----
+  // La différence de charisme détermine la chance de frapper 2, 3 ou 4 fois d'affilée
+  function multiHitCount(att, def) {
+    att = effOf(att); def = effOf(def);
+    var diff = (att.cha || 0) - (def.cha || 0);
+    // 5 % de base + 0,5 % par point d'écart, plafond 35 % : l'ancienne formule
+    // (1 %/pt, plafond 60 %) donnait ~1,9 attaque par tour aux héros à fort
+    // charisme contre des monstres sans charisme — d'où les one-shots.
+    var base = Math.max(0, 0.05 + diff * 0.005);
+    base = Math.min(base, 0.35);
+    var hits = 1;
+    var chance = base;
+    while (hits < 4 && Math.random() < chance) {
+      hits++;
+      chance = chance * 0.5; // chaque palier supplémentaire est deux fois plus rare
+    }
+    return hits;
+  }
+  var MULTI_LABEL = { 1: "", 2: " — DOUBLE ATTAQUE !", 3: " — TRIPLE ATTAQUE !", 4: " — QUADRUPLE ATTAQUE !" };
+  // URLs des avatars (photo si connexion, repli masqué si absente)
+  // Trois états par personnage : sain (>66% PV), blessé (33-66%), critique (<33%)
+  var AVATAR_URLS = {
+    homme: {
+      sain: "images/hero-gladiateur.jpg",
+      blesse: "images/hero-gladiateur-blesse.jpg",
+      critique: "images/hero-gladiateur-critique.jpg"
+    },
+    femme: {
+      sain: "images/hero-gladiatrice.jpg",
+      blesse: "images/hero-gladiatrice-blesse.jpg",
+      critique: "images/hero-gladiatrice-critique.jpg"
+    }
+  };
+  // État du portrait selon le pourcentage de PV restants
+  var lastAvatarState = null;
+  function heroAvatarState() {
+    var r = (H && H.maxHp) ? (H.hp / H.maxHp) : 1;
+    if (r > 0.66) return "sain";
+    if (r > 0.33) return "blesse";
+    return "critique";
+  }
+  function heroAvatarSrc() {
+    if (!H || !H.gender || !AVATAR_URLS[H.gender]) return null;
+    var set = AVATAR_URLS[H.gender];
+    return set[heroAvatarState()] || set.sain;
+  }
+  // ---- Illustrations BD (ennemis d'arène, monstres et boss de la tour) ----
+  // Les fichiers vivent dans le dossier images/ hébergé avec le jeu
+  var FOE_IMGS = [
+    "images/foe-1-brutus.jpg",
+    "images/foe-2-crixus.jpg",
+    "images/foe-3-varius.jpg",
+    "images/foe-4-gaulois.jpg",
+    "images/foe-5-spiculus.jpg",
+    "images/foe-6-tigris.jpg",
+    "images/foe-7-neron.jpg",
+    "images/foe-8-flamma.jpg"
+  ];
+  var MONSTER_IMGS = [
+    "images/monstre-01-rat.jpg",
+    "images/monstre-02-loup.jpg",
+    "images/monstre-03-sanglier.jpg",
+    "images/monstre-04-araignee.jpg",
+    "images/monstre-05-serpent.jpg",
+    "images/monstre-06-scorpion.jpg",
+    "images/monstre-07-spectre.jpg",
+    "images/monstre-08-goule.jpg",
+    "images/monstre-09-ombre.jpg",
+    "images/monstre-10-golem-argile.jpg",
+    "images/monstre-11-golem-pierre.jpg",
+    "images/monstre-12-golem-bronze.jpg",
+    "images/monstre-13-harpie.jpg",
+    "images/monstre-14-cyclope.jpg",
+    "images/monstre-15-chimere.jpg"
+  ];
+  var BOSS_IMGS = [
+    "images/boss-1-gardien-sables.jpg",
+    "images/boss-2-ombre-donjon.jpg",
+    "images/boss-3-gorgone.jpg",
+    "images/boss-4-colosse-bronze.jpg",
+    "images/boss-5-faucheur-ames.jpg",
+    "images/boss-6-bete-abysses.jpg"
+  ];
+  function refreshHeroAvatar() {
+    var img = $("heroAvatar");
+    if (!H.gender || !AVATAR_URLS[H.gender]) { img.classList.add("hidden"); return; }
+    img.classList.remove("hidden");
+    img.src = heroAvatarSrc() || AVATAR_URLS[H.gender].sain;
+    img.onerror = function () { img.classList.add("hidden"); };
+  }
+
+  // ---- Esquive / Blocage ----
+  // La stat esquive fonctionne différemment selon l'équipement :
+  // - sans bouclier : chance d'esquiver complètement l'attaque (plafond 25 %)
+  // - avec bouclier : la stat devient un taux de blocage (l'attaque ne fait que 25 % de dégâts, plafond 50 %)
+  // Les deux taux sont comparatifs : l'écart d'esquive entre défenseur et attaquant compte.
+  function hasShield(f) {
+    return !!(f.equipped && f.equipped.bouclier);
+  }
+  // Esquive comparative : 5 % de base + 0,2 % par point d'écart, plafonnée à 18 %
+  // (abaissé de 25 % : couplée au multi-hit bridé, l'esquive ne doit pas offrir
+  // une invulnérabilité de fait aux héros très entraînés)
+  function dodgeChance(def, att) {
+    def = effOf(def); att = effOf(att);
+    if (hasShield(def)) return 0;
+    var diff = (def.esq || 0) - (att.esq || 0);
+    return Math.max(0.01, Math.min(0.18, 0.05 + diff * 0.002));
+  }
+  // Blocage avec bouclier : 10 % de base + 0,4 % par point d'écart, plafonné à 50 %
+  // (le plafond est atteint à +100 d'écart d'esquive)
+  function blockChance(def, att) {
+    def = effOf(def); att = effOf(att);
+    if (!hasShield(def)) return 0;
+    var diff = (def.esq || 0) - (att.esq || 0);
+    return Math.max(0.02, Math.min(0.50, 0.10 + diff * 0.004));
+  }
+  // Applique esquive/blocage au défenseur après un touché réussi.
+  // Retourne { avoided: true } si esquivé, { blocked: true } si bloqué, sinon null.
+  function defenseRoll(def, att) {
+    if (Math.random() < dodgeChance(def, att)) return { avoided: true };
+    if (Math.random() < blockChance(def, att)) return { blocked: true };
+    return null;
+  }
+
+  function tryHit(att, def, bonus) {
+    att = effOf(att); def = effOf(def);
+    // Pente douce (1 % par point) et bornes resserrées [45 %, 90 %] :
+    // l'écart d'agilité ne doit jamais rendre un combat unilatéral.
+    var chance = 0.7 + (att.agi - def.agi) * 0.01 + (bonus || 0);
+    chance = Math.max(0.45, Math.min(0.9, chance));
+    return Math.random() < chance;
+  }
+  function calcDamage(att, def, mult) {
+    att = effOf(att); def = effOf(def);
+    var raw = dmgOf(att) * (mult || 1);
+    // Titre de chasse : bonus d'attaque du héros contre la famille du monstre
+    if (att === H && def.family) raw *= 1 + heroTitleAtkBonus(def.family);
+    // L'armure absorbe 60 % de sa valeur mais JAMAIS plus de 45 % des dégâts
+    // bruts : empiler l'armure ne peut pas annuler les coups des monstres.
+    var armorCut = Math.min(armorOf(def) * 0.6, raw * 0.45);
+    var dmg = Math.max(1, Math.round(raw - armorCut));
+    // Chance de critique comparative, à la montée LENTE (plafond ~50 %) :
+    // l'ancienne formule saturait à 70 % de critique dès +84 d'agilité,
+    // transformant chaque combat en one-shot.
+    var dAgi = Math.max(0, att.agi - def.agi); // écart positif seulement pour la montée
+    var critChance = dAgi <= 0 ? 0.08 : 0.08 + 0.42 * (dAgi / (dAgi + 60));
+    var crit = Math.random() < critChance;
+    if (crit) dmg = Math.round(dmg * 1.6);
+    return { dmg: dmg, crit: crit };
+  }
+  function companionTurn() {
+    if (!foe || foe.hp <= 0) return;
+    H.companions.forEach(function (c) {
+      if (!foe || foe.hp <= 0) return;
+      if (tryHit(c, foe)) {
+        var d = Math.max(1, Math.round(c.atk * (0.8 + Math.random() * 0.4)));
+        foe.hp = Math.max(0, foe.hp - d);
+        log(c.name + " (auxiliaire) frappe : " + d + " dégâts", "hit");
+      } else {
+        log(c.name + " (auxiliaire) manque sa cible !", "miss");
+      }
+    });
+    updateCombatBars();
+  }
+
+  function attack(mult, hitBonus, label) {
+    if (!inCombat) return;
+    if (tryHit(H, foe, hitBonus)) {
+      var dr = defenseRoll(foe, H);
+      if (dr && dr.avoided) {
+        log(foe.name + " esquive l'attaque de " + H.name + " !", "miss");
+      } else if (dr && dr.blocked) {
+        var hits = multiHitCount(H, foe);
+        var totalB = 0;
+        for (var hb = 0; hb < hits; hb++) totalB += Math.round(calcDamage(H, foe, mult).dmg * 0.25);
+        foe.hp = Math.max(0, foe.hp - totalB);
+        log(foe.name + " bloque l'attaque" + (hits > 1 ? MULTI_LABEL[hits] : "") + " : seulement " + totalB + " dégâts passent !", "hit");
+      } else {
+      var hits = multiHitCount(H, foe);
+      var total = 0, anyCrit = false;
+      for (var h = 0; h < hits; h++) {
+        var r = calcDamage(H, foe, mult);
+        if (r.crit) anyCrit = true;
+        total += r.dmg;
+      }
+      foe.hp = Math.max(0, foe.hp - total);
+      log(H.name + " " + (label || "attaque") + " : " + total + " dégâts" +
+        (hits > 1 ? MULTI_LABEL[hits] : "") + (anyCrit ? " — COUP CRITIQUE !" : ""),
+        hits >= 3 || anyCrit ? "crit" : "hit");
+      }
+    } else {
+      log(H.name + " " + (label || "attaque") + "... et manque sa cible !", "miss");
+    }
+    updateCombatBars();
+    if (foe.hp <= 0) { victory(); return; }
+    companionTurn();
+    if (foe.hp <= 0) { victory(); return; }
+    foeTurn();
+  }
+  function foeTurn() {
+    if (tryHit(foe, H)) {
+      var dr = defenseRoll(H, foe);
+      if (dr && dr.avoided) {
+        log(H.name + " esquive l'attaque de " + foe.name + " !", "sys");
+      } else if (dr && dr.blocked) {
+        var totalB = 0;
+        var hitsB = multiHitCount(foe, H);
+        for (var hb = 0; hb < hitsB; hb++) {
+          var rb = calcDamage(foe, H, 1);
+          var db = rb.dmg;
+          if (H.guard) db = Math.round(db * 0.5);
+          totalB += Math.round(db * 0.25);
+        }
+        H.hp = Math.max(0, H.hp - totalB);
+        log(H.name + " bloque l'attaque derrière son bouclier : seulement " + totalB + " dégâts" +
+          (hitsB > 1 ? MULTI_LABEL[hitsB] : ""), "hit");
+      } else {
+      var hits = multiHitCount(foe, H);
+      var total = 0, anyCrit = false;
+      for (var h = 0; h < hits; h++) {
+        var r = calcDamage(foe, H, 1);
+        if (r.crit) anyCrit = true;
+        var d = r.dmg;
+        if (H.guard) d = Math.round(d * 0.5);
+        total += d;
+      }
+      H.hp = Math.max(0, H.hp - total);
+      log(foe.name + " frappe : " + total + " dégâts" +
+        (hits > 1 ? MULTI_LABEL[hits] : "") + (anyCrit ? " — CRITIQUE !" : ""),
+        hits >= 3 || anyCrit ? "crit" : "hit");
+      }
+    } else {
+      log(foe.name + " attaque... et échoue !", "miss");
+    }
+    H.guard = false;
+    updateCombatBars();
+    if (H.hp <= 0) defeat();
+  }
+
+  function victory() {
+    inCombat = false;
+
+    // --- Mode Aventure ---
+    if (foe.adv) {
+      var A = advOf(foe.zone); // progression de la zone du combat en cours
+      var gf = (A.tower - 1) * 50 + A.floor;
+      // Bonus de chasse → désormais comptage pour les titres uniquement
+      var prevKills = (H.familyKills && H.familyKills[foe.family]) || 0;
+      registerFamilyKill(foe.family);
+      // Nouveau titre débloqué ? (le nombre de victimes vient de franchir un palier)
+      var prevTitleLvl = 0;
+      for (var ti = 0; ti < TITLE_THRESHOLDS.length; ti++) if (prevKills >= TITLE_THRESHOLDS[ti]) prevTitleLvl = ti + 1;
+      if (familyTitle(foe.family).level > prevTitleLvl) {
+        var t = familyTitle(foe.family);
+        log("🎖 NOUVEAU TITRE ! Tu es désormais « " + t.name + " » — +" + Math.round(t.atkBonus * 100) + "% d'attaque contre les " + FAMILY_LABELS[foe.family].label + " !", "rare");
+      }
+      // ---- DONJONS : zone de farm — XP réduite, butin 100 %, divin sur le boss ----
+      if (foe.zone === "donjon") {
+        var D = DUNGEONS[H.dgn.id - 1];
+        var DF = DGN_DIFFS[H.dgn.diff];
+        var dl = D.level;
+        var mst = dgnMastery(H.dgn.id); // maîtrise du donjon (complétions passées)
+        // Échelle d'or du palier (cf. dgnGoldScale) : ×2,2 sur 51-91, ×(palier/60)
+        // au-delà — calibrée pour ~2,5 stats maxables avec l'or cumulé des donjons.
+        var dGS = dgnGoldScale(dl);
+        var dTag = "🏰 [" + D.name + "] ";
+        if (foe.dgnElite) dTag = "🏰✦ [" + D.name + "] ";
+        var mstTag = mst.bonus > 0 ? " [Maîtrise " + "★".repeat(mst.tier) + " +" + Math.round(mst.bonus * 100) + "%]" : "";
+        if (foe.boss) {
+          // ---- Boss de fin de donjon ----
+          var goldB = Math.max(0, Math.round(500 * H.level * DF.gold * dGS * (1 + mst.bonus) * goldMult()));
+          // XP DONJON VOLONTAIREMENT TRÈS BASSE (formule calée par simulation) :
+          // franchir les 10 niveaux d'un palier demande ~50-70 nettoyages, soit
+          // continuer à farmer le donjon APRÈS la maîtrise 50×. Le donjon est
+          // une zone de farm de butin/or — le leveling passe par la tour.
+          var xpB = Math.max(0, Math.round((1 + dl * 0.1) * 2 * DF.xp * (1 + mst.bonus) * xpMult()));
+          H.gold += goldB; H.xp += xpB;
+          log(dTag + foe.name + " vaincu ! +" + goldB + " or, +" + xpB + " XP.", "rare");
+          // Divin : 1 % de chance (fonction déjà calée sur les boss)
+          tryDivineDrop();
+          // Butin du boss : 2 objets garantis (3 en difficile)
+          var nBL = DF.luck ? 3 : 2;
+          for (var blt = 0; blt < nBL; blt++) {
+            var itB = rollLootItem(1 + DF.luck);
+            H.items.push(itB);
+            logLoot("⚡ " + (foe.dgnElite ? "L'élite abandonne : " : "Le boss abandonne : "), itB);
+          }
+          // Donjon nettoyé : prime et sortie
+          var prime = Math.round(100 * dl * DF.gold * dGS * goldMult());
+          H.gold += prime;
+          H.dgn.cleared = H.dgn.cleared || {};
+          H.dgn.cleared[H.dgn.id + "-" + H.dgn.diff] = true;
+          // Maîtrise de donjon : chaque nettoyage compte (quelle que soit la difficulté)
+          var mstNew = registerDgnClear(H.dgn.id);
+          log("🏰 DONJON NETTOYÉ ! " + D.name + " (" + DF.label + ") est conquis. Prime : +" + prime + " or.", "rare");
+          if (mstNew.tier > mst.tier) {
+            log("🎖 MAÎTRISE " + "★".repeat(mstNew.tier) + " ! " + D.name + " maîtrisé " + mstNew.count + " fois : +" + Math.round(mstNew.bonus * 100) + "% d'or et d'XP dans ce donjon !", "rare");
+          }
+          H.dgn.id = null; H.dgn.prog = 0;
+        } else {
+          // ---- Monstre de donjon (éventuellement élite) ----
+          var goldN = Math.max(0, Math.round((10 + dl * 6) * DF.gold * dGS * (foe.dgnElite ? 1.6 : 1) * (1 + mst.bonus) * goldMult()));
+          // XP volontairement basse : le donjon sert le farm de butin/or, pas le leveling
+          // XP volontairement basse (cf. formule du boss ci-dessus)
+          var xpN = Math.max(0, Math.round((1 + dl * 0.1) * DF.xp * (foe.dgnElite ? 1.5 : 1) * (1 + mst.bonus) * xpMult()));
+          H.gold += goldN; H.xp += xpN;
+          log(dTag + foe.name + " vaincu ! +" + goldN + " or, +" + xpN + " XP." + mstTag,
+            foe.dgnElite ? "rare" : "gold");
+          // Butin garanti à 100 % (les élites en lâchent deux)
+          var nML = foe.dgnElite ? 2 : 1;
+          for (var mlt = 0; mlt < nML; mlt++) {
+            var itM = rollLootItem(DF.luck + (foe.dgnElite ? 1 : 0));
+            H.items.push(itM);
+            logLoot("⚡ " + (foe.dgnElite && mlt === 0 ? "L'élite abandonne : " : "Tu récupères : "), itM);
+          }
+          // Provisions : 30 % (comme la tour — le farm de nourriture compte)
+          if (Math.random() < 0.30) {
+            var foodD = rollFood(foe.dgnElite ? 1 : 0);
+            stackFood(foodD);
+            logLoot("🍲 PROVISIONS ! Tu fouilles son balluchon : ", foodD);
+          }
+          H.dgn.prog++;
+          if (H.dgn.prog >= H.dgn.need) {
+            log("⚔ " + dTag + "L'air se refroidit... Le boss approche !", "rare");
+          }
+        }
+        // Montées de niveau (rares ici : l'XP est basse) + récupération entre combats
+        var dLvl = false;
+        while (H.xp >= xpNeeded(H.level)) {
+          H.xp -= xpNeeded(H.level);
+          H.level++; dLvl = true;
+          log(H.name + " passe au niveau " + H.level + " !", "gold");
+        }
+        if (dLvl) {
+          H.maxHp = maxHpOf(H);
+          H.hp = H.maxHp;
+          refreshShopStock(true);
+          log("🌟 La montée de niveau te régénère entièrement : " + H.hp + " / " + H.maxHp + " PV !", "gold");
+        } else {
+          H.hp = Math.min(H.maxHp, H.hp + Math.round(H.maxHp * 0.25));
+        }
+        foe = null;
+        save(); renderAll();
+        return;
+      }
+      // ---- ZONE TEST : tour INFINIE — les monstres normaux ne paient RIEN.
+      // Seuls les boss (tous les 10 étages) récompensent : or + butin (+ divin).
+      // Aucune XP dans cette zone : le personnage ne progresse que dehors.
+      if (foe.zone === "test") {
+        var blT = foe.bl || gf;
+        var grandBoss = (gf % 50 === 0); // grand boss : tous les 50 étages
+        if (foe.boss) {
+          // Or du boss : grand boss ×3
+          var goldT = Math.max(0, Math.round((grandBoss ? 1500 : 500) * H.level * goldMult()));
+          H.gold += goldT;
+          log("🧪 [Zone test] " + foe.name + " vaincu ! +" + goldT + " or." +
+            (grandBoss ? " — GRAND BOSS !" : ""), "rare");
+          // Chance d'objet divin (1 %, boss uniquement)
+          tryDivineDrop();
+          // Butin garanti : 1 objet, 2 pour un grand boss
+          var nLoot = grandBoss ? 2 : 1;
+          var lootChT = 1 + familyTitle(foe.family).level * 0.05;
+          if (lootChT > 1 && Math.random() < (lootChT - 1)) nLoot++;
+          for (var lt = 0; lt < nLoot; lt++) {
+            var itT = rollLootItem(grandBoss ? 2 : 1);
+            H.items.push(itT);
+            logLoot("⚡ [Zone test] " + (grandBoss ? "Le grand boss abandonne : " : "Le boss abandonne : "), itT);
+          }
+        } else {
+          log("🧪 [Zone test] " + foe.name + " vaincu ! Aucune récompense — seuls les boss paient dans cette tour.", "sys");
+        }
+        // Record personnel : l'étage le plus loin jamais atteint
+        if (A.floor > (A.best || 0)) {
+          var wasRecord = A.floor > (A.best || 0);
+          A.best = A.floor;
+          if (wasRecord && A.floor % 10 === 0) log("🏅 [Zone test] Nouveau record : étage " + A.floor + " !", "rare");
+        }
+        A.floor++; // ascension infinie : l'étage suivant existe toujours
+        // Repaire : point de contrôle permanent tous les 25 étages franchis
+        if ((A.floor - 1) > 0 && (A.floor - 1) % 25 === 0) {
+          A.cp = A.floor - 1;
+          log("🏕 [Zone test] Repaire établi à l'étage " + A.cp + " : en cas de mort, tu reprendras ici.", "rare");
+        }
+        // Petite récupération entre les étages (même rythme que la Grande Tour)
+        H.hp = Math.min(H.maxHp, H.hp + Math.round(H.maxHp * 0.15));
+        foe = null;
+        save(); renderAll();
+        return;
+      }
+      var bl = foe.bl || gf;
+      var goldGain = Math.max(0, Math.round((foe.boss ? 500 * H.level : (10 + bl * 6)) * goldMult()));
+      // Tour 5 : XP sur l'étage brut ×0,6 (le héros finit ~niveau 240-250, aligné
+      // sur l'étage final) ; tour 4 : niveau théorique ×1,0 ; tours 2-3 : ×1,18.
+      var t5 = foe.adv && A && A.tower === 5;
+      var xpBase = t5 ? gf : bl;
+      var xpMultT = t5 ? 0.6 : (foe.adv && A && A.tower >= 4 ? 1.0 : (foe.adv && A && A.tower > 1 ? 1.18 : 1));
+      var xpGain = Math.max(0, Math.round((5 + xpBase * 3) * (foe.boss ? 2 : 1) * xpMult() * xpMultT));
+      // Plafond anti-grind : un ennemi ne rapporte jamais plus de la moitié de
+      // l'XP requise pour le niveau ACTUEL du héros. Sans lui, mourir puis
+      // re-farmer les étages d'une tour gonfle le niveau sans limite (mesuré :
+      // niveau 400+ en tour 5) et casse tout l'équilibrage.
+      var xpCap = Math.round(0.5 * xpNeeded(H.level));
+      if (xpGain > xpCap) xpGain = xpCap;
+      H.gold += goldGain; H.xp += xpGain;
+      log(foe.name + " vaincu ! +" + goldGain + " or, +" + xpGain + " XP.",
+        foe.boss ? "rare" : "gold");
+      tryDivineDrop();
+      // Butin : 100 % garanti sur tout (monstres, boss, mini-boss, boss final).
+      // Au-delà de 100 % (bonus de chasse + titres de famille), un SECOND objet tombe.
+      var lootChance = 1 + familyTitle(foe.family).level * 0.05;
+      var drops = Math.random() < lootChance ? 1 : 0;
+      if (lootChance >= 1 || drops > 0) {
+        // Premier objet : toujours garanti (base 100 %)
+        var it = rollLootItem(foe.boss ? 1 : 0);
+        H.items.push(it);
+        logLoot("⚡ BUTIN ! " + (foe.boss ? "Le boss abandonne : " : "Tu récupères : "), it);
+        // Second objet si le taux dépasse 100 %
+        if (lootChance > 1 && Math.random() < (lootChance - 1)) {
+          var it2 = rollLootItem(foe.boss ? 1 : 0);
+          H.items.push(it2);
+          logLoot("⚡ BUTIN DOUBLÉ ! Ta renommée arrache un second trophée : ", it2);
+        }
+      }
+      // Nourriture : 30 % de chances (les monstres du donjon ont des provisions)
+      if (Math.random() < 0.30) {
+        var food = rollFood(foe.boss ? 1 : 0);
+        stackFood(food);
+        logLoot("🍲 PROVISIONS ! Tu fouilles son balluchon : ", food);
+      }
+      // Cadeau du boss : 5 points de stats distribués aléatoirement
+      // (uniquement si le niveau du héros < 2 x niveau du boss, pour éviter le farm)
+      if (foe.boss && H.level < foe.level * 2) {
+        var gift = { str: 0, agi: 0, end: 0 };
+        for (var g = 0; g < 5; g++) {
+          var roll = Math.random();
+          if (roll < 0.34) gift.str++;
+          else if (roll < 0.67) gift.agi++;
+          else gift.end++;
+        }
+        H.str += gift.str; H.agi += gift.agi; H.end += gift.end;
+        if (gift.end > 0) H.hp += gift.end * 6;
+        var giftParts = [];
+        if (gift.str) giftParts.push("+" + gift.str + " Force");
+        if (gift.agi) giftParts.push("+" + gift.agi + " Agilité");
+        if (gift.end) giftParts.push("+" + gift.end + " Endurance");
+        log("🎁 FAVEUR DU BOSS ! Son essence te fortifie : " + giftParts.join(", ") + ".", "rare");
+      } else if (foe.boss) {
+        log("🎁 Le boss vaincu ne t'apporte aucune faveur : son essence est trop faible pour toi (niveau ≥ 2 x " + foe.level + ").", "sys");
+      }
+      A.floor++;
+      if (A.floor > 50) {
+        A.tower++;
+        A.floor = 1;
+        A.done = false;
+        // Tour la plus haute atteinte : déverrouille le téléporteur vers
+        // les débuts des tours déjà conquises
+        A.maxTower = Math.max(A.maxTower || 1, A.tower);
+        // Palier légendaire unique : les 10 premières tours (niveau 500) conquises
+        // (uniquement dans La Grande Tour)
+        if (foe.zone !== "test" && A.tower === 11 && !H.legend500) {
+          H.legend500 = true;
+          H.gold += 2000;
+          log("🏆 LÉGENDE ! Tu as conquis les 10 premières tours (niveau 500) ! L'ascension continue à l'infini... Prime : +2000 or.", "rare");
+        }
+        var bonusG = Math.round(2 * (100 + A.tower * 50) * goldMult());
+        H.gold += bonusG;
+        var zTag = foe.zone === "test" ? "[Zone test] " : "";
+        log("🗼 " + zTag + "Tour " + (A.tower - 1) + " terminée ! Tour " + A.tower + " débloquée. Prime : +" + bonusG + " or.", "gold");
+      }
+      foe = null;
+      var leveledUp = false;
+      while (H.xp >= xpNeeded(H.level)) {
+        H.xp -= xpNeeded(H.level);
+        H.level++; leveledUp = true;
+        log(H.name + " passe au niveau " + H.level + " !", "gold");
+      }
+      // Une montée de niveau restaure toute la vitalité du gladiateur
+      if (leveledUp) {
+        H.maxHp = maxHpOf(H);
+        H.hp = H.maxHp;
+        // Nouvelles offres du marchand à chaque montée de niveau
+        refreshShopStock(true);
+        log("🌟 La montée de niveau te régénère entièrement : " + H.hp + " / " + H.maxHp + " PV !", "gold");
+        log("🎁 Le marchand renouvelle ses offres d'objets rares !", "gold");
+      } else {
+        H.hp = Math.min(H.maxHp, H.hp + Math.round(H.maxHp * 0.15));
+      }
+      save(); renderAll();
+      return;
+    }
+
+    var goldGain2 = Math.round((10 + foe.level * 8) * goldMult());
+    var xpGain2 = Math.round((12 + foe.level * 7) * xpMult());
+    if (foe.rival) { goldGain2 = Math.round(goldGain2 * 1.5); xpGain2 = Math.round(xpGain2 * 1.4); }
+    H.gold += goldGain2; H.xp += xpGain2; H.wins++;
+    log("Victoire ! " + foe.name + " s'incline. +" + goldGain2 + " or, +" + xpGain2 + " XP.", "gold");
+
+    // Butin : 100 % garanti aussi sur les adversaires de l'arène et le rival.
+    // Titre de famille inconnu ici → second objet via le même principe de taux.
+    var lootChance2 = foe.rival ? 1.15 : 1; // le rival est un adversaire de haut rang : 15 % de butin doublé
+    var it = rollLootItem(foe.rival ? 1 : 0);
+    H.items.push(it);
+    logLoot("⚡ BUTIN ! Tu récupères : ", it);
+    if (Math.random() < (lootChance2 - 1)) {
+      var it2 = rollLootItem(foe.rival ? 1 : 0);
+      H.items.push(it2);
+      logLoot("⚡ BUTIN DOUBLÉ ! Tu fouilles ses affaires une seconde fois : ", it2);
+    }
+    // Nourriture : 30 % de chances sur les adversaires de l'arène
+    if (Math.random() < 0.30) {
+      var food = rollFood(foe.rival ? 1 : 0);
+      stackFood(food);
+      logLoot("🍲 PROVISIONS ! Tu récupères : ", food);
+    }
+
+    // Suite du tour de l'arène ou fin de tour
+    if (H.tour) {
+      H.tour.wave++;
+      if (H.tour.wave > 3) {
+        var bonusG = 30 + H.tour.tier * 15;
+        var bonusX = 20 + H.tour.tier * 12;
+        H.gold += bonusG; H.xp += bonusX;
+        log("🏟 Tour de l'arène terminé ! Prime du laniste : +" + bonusG + " or, +" + bonusX + " XP.", "gold");
+        H.tour = null;
+        foe = null;
+      } else {
+        foe = makeFoe(H.tour.tier + H.tour.wave - 1);
+        inCombat = true; H.guard = false;
+        H.hp = Math.min(H.maxHp, H.hp + Math.round(H.maxHp * 0.15));
+        log("Vague " + H.tour.wave + "/3 : " + foe.name + " (niv. " + foe.level + ") entre dans l'arène !", "sys");
+      }
+    } else {
+      foe = null;
+    }
+
+    var leveledUp = false;
+    while (H.xp >= xpNeeded(H.level)) {
+      H.xp -= xpNeeded(H.level);
+      H.level++; leveledUp = true;
+      log(H.name + " passe au niveau " + H.level + " !", "gold");
+    }
+    if (leveledUp) {
+      // Une montée de niveau restaure toute la vitalité du gladiateur
+      H.maxHp = maxHpOf(H);
+      H.hp = H.maxHp;
+      refreshShopStock(true);
+      log("🌟 La montée de niveau te régénère entièrement : " + H.hp + " / " + H.maxHp + " PV !", "gold");
+      log("🎁 Le marchand renouvelle ses offres d'objets rares !", "gold");
+    } else if (!inCombat) H.hp = Math.min(H.maxHp, H.hp + Math.round(H.maxHp * 0.2));
+    save(); renderAll();
+    if (!inCombat) log("L'arène t'applaudit. Choisis un nouvel adversaire.", "sys");
+  }
+  function defeat() {
+    inCombat = false;
+    H.tour = null;
+    if (foe && foe.adv) {
+      var dz = foe.zone; // zone du combat perdu
+      var D = advOf(dz);
+      var diedFloor = D ? D.floor : null;
+      foe = null;
+      // ---- Donjons : la mort est DÉFINITIVE pour le run — or, XP et butin
+      // conservés, mais le donjon se rejoue depuis le début ----
+      if (dz === "donjon" && H.dgn && H.dgn.id) {
+        var dDead = DUNGEONS[H.dgn.id - 1];
+        H.hp = H.maxHp;
+        H.dgn.prog = 0;
+        log("☠ 🏰 [" + dDead.name + "] Tu t'effondres ! La mort est définitive : or, XP et butin sont conservés, mais le donjon recommence depuis le début.", "hit");
+        log("Tes PV sont restaurés. Retente ta chance quand tu veux.", "sys");
+        save(); renderAll();
+        return;
+      }
+      // ---- Zone test : la mort n'efface RIEN (or, XP, butin conservés) ----
+      // Le run s'arrête : retour au repaire (ou étage 1). Seul le record compte.
+      if (dz === "test") {
+        H.hp = H.maxHp;
+        D.floor = D.cp || 1;
+        log("☠ 🧪 [Zone test] Tu t'effondres à l'étage " + diedFloor + " ! Le run s'arrête — mais tu conserves or, XP et butin.", "hit");
+        log("🏕 Tu reprends connaissance au repaire (étage " + D.floor + "). Record personnel : étage " + (D.best || 0) + ".", "sys");
+        save(); renderAll();
+        return;
+      }
+      var diedTower = D ? D.tower : null;
+      // La mort dans la tour : PV restaurés, mais l'XP du niveau actuel est perdue
+      H.hp = H.maxHp;
+      H.xp = 0;
+      // Frais de réanimation : le laniste facture 25 % de l'or (anti-farm —
+      // mourir en boucle pour re-farmer les étages doit coûter plus que ça paie)
+      var fee = Math.floor(H.gold * 0.25);
+      if (fee > 0) {
+        H.gold -= fee;
+        log("💰 Le laniste facture la réanimation : −" + fee + " or (25 % de ta bourse).", "hit");
+      }
+      // La mort dans la tour renvoie au début de celle-ci
+      if (D) {
+        D.floor = 1;
+        var zTagD = dz === "test" ? "[Zone test] " : "";
+        log("☠ " + zTagD + "Tu t'effondres ! Tu reprends connaissance à l'entrée : retour à l'étage 1 de la tour " + diedTower + ".", "hit");
+        log("💔 Tout l'XP acquis vers le niveau " + (H.level + 1) + " est perdu. Tes PV sont restaurés.", "hit");
+      } else {
+        log("Tu recules blessé hors de la tour... Tu devras réaffronter l'étage " + (D ? D.floor : "?") + ".", "hit");
+      }
+      save(); renderAll();
+      return;
+    }
+    log("Tu tombes dans le sable... Le laniste te ranime.", "hit");
+    foe = null;
+    H.hp = Math.max(1, Math.round(H.maxHp * 0.3));
+    save(); renderAll();
+  }
+
+  // ---- UI ----
+  function show(id) { $(id).classList.remove("hidden"); }
+  function hide(id) { $(id).classList.add("hidden"); }
+
+  function renderAll() {
+    H.maxHp = maxHpOf(H);
+    if (H.hp === undefined || H.hp > H.maxHp) H.hp = H.maxHp;
+    show("heroPanel"); show("combatPanel"); show("saveBlock");
+    renderSaveBlock();
+    hide("creation");
+    // ---- Onglet Combat : barres + actions si combat en cours, chronique sinon ----
+    var caBox = $("combatActions");
+    if (inCombat && foe) {
+      var isAdv = !!foe.adv;
+      show("vsBlock");
+      $("combatTitle").textContent = isAdv
+        ? "🗼 Combat — La Grande Tour"
+        : (H.tour ? "🏟 Tour de l'arène (vague " + H.tour.wave + "/3)" : "⚔ Combat — L'Arène");
+      caBox.innerHTML = isAdv
+        ? '<button class="primary" data-advattack="1">⚔ Attaquer</button>' +
+          '<button data-advheavy="1">💪 Coup puissant</button>' +
+          '<button data-advdefend="1">🛡 Se défendre</button>' +
+          '<button data-advflee="1">🏃 Fuir (retour à l\'entrée de l\'étage)</button>'
+        : '<button class="primary" id="btnAttack">⚔ Attaquer</button>' +
+          '<button id="btnHeavy">💪 Coup puissant</button>' +
+          '<button id="btnDefend">🛡 Se défendre</button>';
+      $("fHeroName").textContent = H.name;
+      $("fFoeName").textContent = isAdv
+        ? (foe.zone === "donjon"
+            ? "🏰 " + (foe.boss ? DUNGEONS[H.dgn.id - 1].boss : "Salle " + (H.dgn.prog + 1) + "/" + H.dgn.need) + " — " + foe.name
+            : (foe.zone === "test" ? "🧪" : "🗼") + " Étage " + advOf(foe.zone).floor + " — " + foe.name)
+        : foe.name;
+      // Portraits BD : ton avatar face à l'illustration de l'ennemi
+      var hImg = $("fHeroImg"), fImg = $("fFoeImg");
+      var heroSrc = heroAvatarSrc() || ($("heroAvatar") && $("heroAvatar").src);
+      if (hImg) {
+        if (heroSrc) { hImg.src = heroSrc; hImg.style.display = "block"; hImg.onerror = function () { hImg.style.display = "none"; }; }
+        else hImg.style.display = "none";
+      }
+      if (fImg) {
+        if (foe.img) { fImg.src = foe.img; fImg.style.display = "block"; fImg.onerror = function () { fImg.style.display = "none"; }; }
+        else fImg.style.display = "none";
+      }
+      updateCombatBars();
+    } else {
+      hide("vsBlock");
+      // Bouton Continuer : enchaîner l'étage suivant sans retourner dans l'onglet Tour
+      var AD = advData(); // zone active (le combat vient de s'y dérouler)
+      if (advZone === "donjon" && H.dgn && H.dgn.id) {
+        // Donjon : enchaîner la salle suivante (ou le boss) sans changer d'onglet
+        var DC = DUNGEONS[H.dgn.id - 1];
+        caBox.innerHTML = '<button class="primary" data-advfloor="1" style="margin:4px 0;">🏰 Continuer — ' +
+          (H.dgn.prog >= H.dgn.need ? "⚔ " + DC.boss : "salle " + (H.dgn.prog + 1) + "/" + H.dgn.need) + '</button>';
+      } else if (AD && !AD.done) {
+        caBox.innerHTML = '<button class="primary" data-advfloor="1" style="margin:4px 0;">' +
+          (advZone === "test" ? "🧪 Continuer — Étage " + AD.floor : "🗼 Continuer — Étage " + AD.floor + " (tour " + AD.tower + ")") + '</button>';
+      } else {
+        caBox.innerHTML = "";
+      }
+      $("combatTitle").textContent = "📜 Chronique";
+    }
+    $("heroTitle").textContent = H.name + " — " + H.clsLabel;
+    // Titre principal affiché sous le nom : le plus haut obtenu
+    var bestTitle = null, bestLvl = 0;
+    for (var fam2 in FAMILY_LABELS) {
+      var ft2 = familyTitle(fam2);
+      if (ft2.level > bestLvl) { bestLvl = ft2.level; bestTitle = ft2; }
+    }
+    var titleEl = document.getElementById("heroTitleTag");
+    titleEl.textContent = bestTitle ? "🎖 " + bestTitle.name : "";
+    titleEl.style.display = bestTitle ? "block" : "none";
+    refreshHeroAvatar();
+    $("sLvl").textContent = H.level; $("sGold").textContent = H.gold;
+    $("hpTxt").textContent = H.hp + " / " + H.maxHp;
+    $("hpBar").style.width = (100 * H.hp / H.maxHp) + "%";
+    $("hpBarTxt").textContent = H.hp + " / " + H.maxHp;
+    var need = xpNeeded(H.level);
+    $("xpBar").style.width = Math.min(100, 100 * H.xp / need) + "%";
+    $("xpBarTxt").textContent = Math.floor(100 * H.xp / need) + "% · " + H.xp + " / " + need;
+    // (plus de points de niveau : l'entraînement est la seule voie d'amélioration)
+    renderShop(); renderArena(); renderAdventure(); renderInventory(); renderTraining();
+  }
+
+  function itemColor(it) {
+    if (it.rarity) {
+      for (var i = 0; i < RARITIES.length; i++) if (RARITIES[i].id === it.rarity) return RARITIES[i].color;
+    }
+    return "#f3e9d2"; // objet de base (armurerie)
+  }
+
+  // ---- Camp d'entraînement : stats contre or ----
+  var TRAIN_DEFS = [
+    { id: "str", label: "Entraînement aux haltères", desc: "+1 Force" },
+    { id: "agi", label: "Parcours d'obstacles", desc: "+1 Agilité" },
+    { id: "end", label: "Marches forcées", desc: "+1 Endurance (+6 vie max)" },
+    { id: "cha", label: "Déclamation et prestance", desc: "+1 Charisme (attaques multiples)" },
+    { id: "esq", label: "Danses de combat", desc: "+1 Esquive / Blocage" }
+  ];
+  // Coût d'entraînement basé sur la VALEUR actuelle de la stat (courbe quadratique) :
+  // coût = 0,08 × valeur², plafonné à 40 or minimum.
+  // Calibrage (simulé) : maxer les 5 stats au niveau 41 (cap 215) coûte ~5 M
+  // d'or — un objectif de long terme calé sur le farm des donjons (≈3,2 M d'or
+  // brut pour les donjons 1-5, plus l'armurerie et les re-farm post-maîtrise).
+  // Chaque point coûte STRICTEMENT plus cher que le précédent (base 40 + 0,3014×stat²).
+  // Exemples : 10→11 : 70 or · 50→51 : 794 or · 100→101 : 3 054 or · 150→151 : 6 822 or · 214→215 : 13 843 or.
+  // Le coût suit la stat elle-même (pas le nombre de séances).
+  function trainCost(stat) {
+    var cur = stat === "str" ? H.str : stat === "agi" ? H.agi : stat === "end" ? H.end :
+              stat === "cha" ? (H.cha || 0) : (H.esq || 0);
+    return Math.round(40 + 0.3014 * cur * cur);
+  }
+  // ---- Plafond de stats (inspiré de Gladiatus : max = niveau × 5) ----
+  // La base + l'entraînement d'une stat ne peuvent pas dépasser 10 + 5 × niveau.
+  // L'équipement n'est pas compté : le loot reste toujours un vrai gain.
+  function statCapOf(L) { return 10 + 5 * Math.max(1, L); }
+  function statCapLeft(stat) {
+    if (!H) return 0;
+    var cap = statCapOf(H.level);
+    var cur = (H[stat] || 0); // stats de base (l'équipement est géré par effOf)
+    return Math.max(0, cap - cur);
+  }
+  function renderTraining() {
+    show("training");
+    var html = "";
+    var allCap = true, anyGoldBlock = false;
+    TRAIN_DEFS.forEach(function (td) {
+      var cost = trainCost(td.id);
+      var cur = td.id === "str" ? H.str : td.id === "agi" ? H.agi : td.id === "end" ? H.end : td.id === "cha" ? (H.cha || 0) : (H.esq || 0);
+      var atCap = statCapLeft(td.id) <= 0;
+      if (!atCap) allCap = false;
+      if (atCap || H.gold < cost) anyGoldBlock = true;
+      var why = atCap ? "Plafond atteint (" + statCapOf(H.level) + ") — monte de niveau pour le repousser" :
+                 (H.gold < cost ? "Or insuffisant (" + H.gold + " / " + cost + ")" : "");
+      html += '<div class="opp"><span>' + td.label + ' <small style="color:#a08a63">— ' + td.desc +
+        ' (séances suivies : ' + H.trains[td.id] + ')</small><br/>' +
+        '<small style="font-size:11px;color:#d4a94e;">Stat actuelle : <b>' + cur + '</b>' + (atCap ?
+          ' <span style="color:#c96;">— PLAFOND (' + statCapOf(H.level) + ')</span>' :
+          ' → après séance : <b>' + (cur + 1) + '</b> <span style="color:#a08a63;">(max ' + statCapOf(H.level) + ')</span>') + '</small></span>' +
+        '<button data-train="' + td.id + '" ' + (H.gold < cost || atCap ? "disabled" : "") +
+        (why ? ' title="' + why + '"' : "") + '>💪 ' + cost + ' or</button></div>';
+    });
+    // Bannière explicative quand tout est verrouillé : l'or ne suffit pas,
+    // c'est le plafond de niveau qui bloque — il faut combattre pour monter
+    if (allCap) {
+      html = '<div style="margin-bottom:10px;padding:8px 10px;background:#241a08;border:1px solid #c96;border-radius:6px;font-size:13px;color:#e8b46a;">' +
+        '🚧 <b>Plafond atteint sur toutes les stats</b> (' + statCapOf(H.level) + ' au niveau ' + H.level + ').<br/>' +
+        'L\'or ne sert à rien ici pour l\'instant : <b>combat pour monter de niveau</b> — chaque niveau repousse le plafond de +5 par stat.</div>' + html;
+    } else if (anyGoldBlock && H.gold > 0) {
+      html = '<div style="margin-bottom:10px;padding:6px 10px;background:#10100c;border:1px dashed #6e5b3a;border-radius:6px;font-size:12px;color:#a08a63;">' +
+        '💰 Or disponible : <b style="color:#d4a94e;">' + H.gold + '</b> — les séances trop chères sont grisées (passe la souris pour le détail).</div>' + html;
+    }
+    $("trainList").innerHTML = html;
+  }
+
+  var fuseSelection = [];
+
+  // ---- Marchand : prix de revente selon la rareté ----
+  var SELL_RATES = { commun: 10, superieur: 25, epique: 60, legendaire: 150, divin: 500 };
+  function sellPrice(it) {
+    if (it.rarity && SELL_RATES[it.rarity]) {
+      return Math.round((SELL_RATES[it.rarity] + (it.atk + it.def) * 3) * (1 + H.level * 0.05));
+    }
+    // Objet d'armurerie : ~40 % de sa valeur d'achat
+    var base = 0;
+    for (var i = 0; i < SHOP.length; i++) if (SHOP[i].id === it.id) base = SHOP[i].cost;
+    return Math.max(5, Math.round((base || 15) * 0.4));
+  }
+  function sellItem(id) {
+    var idx = -1;
+    for (var i = 0; i < H.items.length; i++) if (H.items[i].id === id) idx = i;
+    if (idx < 0) return;
+    var it = H.items[idx];
+    var price = sellPrice(it);
+    // Nourriture empilée : on ne vend qu'une unité
+    if (it.food && (it.qty || 1) > 1) {
+      it.qty = (it.qty || 1) - 1;
+    } else {
+      H.items.splice(idx, 1);
+      fuseSelection = fuseSelection.filter(function (x) { return x !== id; });
+    }
+    H.gold += price;
+    log("💰 Vendu : " + it.name + " au marchand pour " + price + " or.", "gold");
+    save(); renderAll();
+  }
+  // Type d'objet affiché à côté du nom (générique : bouclier, arme 1 main... pas le nom du modèle)
+  function typeLabel(it) {
+    if (it.food) return "nourriture";
+    if (it.consumable) return "consommable";
+    if (!it.slot) return "objet";
+    if (it.slot === "arme") return it.hands === 2 ? "arme 2 mains" : "arme 1 main";
+    return slotLabel(it.slot);
+  }
+  function itemLabel(it) {
+    var lvlTag = it.itemLevel ? ' <small style="color:#a08a63;">niv. ' + it.itemLevel + '</small>' : "";
+    if (it.food) return it.name + " (nourriture)" + (it.rarityLabel ? " [" + it.rarityLabel + "]" : "") + lvlTag +
+      ' <small style="color:#6fd66a;">+' + foodHealPts(it) + ' PV</small>';
+    return it.name + " (" + typeLabel(it) + ")" + (it.rarityLabel ? " [" + it.rarityLabel + "]" : "") + lvlTag +
+      ' <small style="color:#a08a63;">' + bonusTxt(it) + '</small>';
+  }
+  function equipItem(id, targetSlot) {
+    var idx = -1;
+    for (var i = 0; i < H.items.length; i++) if (H.items[i].id === id) idx = i;
+    if (idx < 0) return;
+    var it = H.items[idx];
+    if (!it.slot) { log("Cet objet ne peut pas être équipé.", "sys"); return; }
+    var slot = targetSlot || it.slot;
+    // Armes : règles de mains
+    if (it.hands === 2 && slot !== "arme") {
+      log("Cette arme à deux mains ne peut aller que dans le slot Arme.", "sys");
+      return;
+    }
+    if (slot === "bouclier" && it.slot === "arme" && it.hands !== 1) {
+      log("Seules les armes à une main peuvent servir de bouclier.", "sys");
+      return;
+    }
+    if (slot === "bouclier" && it.slot !== "bouclier" && it.slot !== "arme") {
+      log("Seuls un bouclier ou une arme à une main peuvent occuper ce slot.", "sys");
+      return;
+    }
+    // Bouclier : interdit si une arme à deux mains est portée (et inversement)
+    if (slot === "bouclier" && H.equipped.arme && H.equipped.arme.hands === 2) {
+      log("⚠ Impossible : " + H.equipped.arme.name + " occupe tes deux mains. Déséquipe-la d'abord (bouton ✕ de la case Arme).", "sys");
+      return;
+    }
+    // Arme à deux mains : le bouclier doit être libéré
+    if (it.hands === 2 && H.equipped.bouclier) {
+      H.items.push(H.equipped.bouclier);
+      log(H.equipped.bouclier.name + " retourne au sac : ton arme à deux mains exige tes deux mains.", "sys");
+      H.equipped.bouclier = null;
+    }
+    // Bagues : essaie l'autre slot si celui-ci est pris
+    if ((slot === "bague1" || slot === "bague2") && H.equipped[slot]) {
+      var other = slot === "bague1" ? "bague2" : "bague1";
+      if (!H.equipped[other]) slot = other;
+    }
+    var previous = H.equipped[slot];
+    H.equipped[slot] = it;
+    H.items.splice(idx, 1);
+    if (previous) H.items.push(previous);
+    log("🛡 Équipé : " + it.name + " (" + slotLabel(slot) + ")." + (previous ? " " + previous.name + " retourne au sac." : ""), "sys");
+    save(); renderAll();
+  }
+  function unequipItem(slot) {
+    var it = H.equipped[slot];
+    if (!it) return;
+    H.equipped[slot] = null;
+    H.items.push(it);
+    if (inspSlot === slot) inspSlot = null;
+    log("📦 Déséquipé : " + it.name + ".", "sys");
+    save(); renderAll();
+  }
+
+  // ---- Inventaire visuel : poupée d'équipement + grille de sac ----
+  var SLOT_ICONS = { arme: "⚔️", bouclier: "🛡️", casque: "⛑️", armure: "🥼", gant: "🧤", jambe: "👖", chaussure: "👟", amulette: "📿", boucle: "💠", bague1: "💍", bague2: "💍" };
+  function itemIcon(it) {
+    if (it.food) return "🍲";
+    if (it.consumable) return "🧪";
+    return SLOT_ICONS[it.slot] || "📦";
+  }
+  // Disposition Gladiatus : les cases autour du gladiateur
+  var DOLL_ROWS = [
+    ["boucle", "casque", "amulette"],
+    ["arme", "AVATAR", "bouclier"],
+    ["bague1", "armure", "bague2"],
+    ["gant", "jambe", "chaussure"]
+  ];
+  var invSelected = null;
+
+  var invTab = "equip"; // onglet actif du sac : "equip" | "food"
+  var inspSlot = null;  // slot d'équipement en cours d'examen (poupée)
+  function renderInventory() {
+    show("inventory");
+    var list = $("invList"), forge = $("forgeBox"), doll = $("dollGrid"), det = $("invDetail");
+    // -- Onglets : comptage par type --
+    var foods = H.items.filter(function (x) { return x.food; });
+    var gears = H.items.filter(function (x) { return !x.food; });
+    $("invEquipCount").textContent = "(" + gears.length + ")";
+    $("invFoodCount").textContent = "(" + foods.length + ")";
+    $("invTabEquip").classList.toggle("primary", invTab === "equip");
+    $("invTabFood").classList.toggle("primary", invTab === "food");
+    $("invEquipPane").style.display = invTab === "equip" ? "block" : "none";
+    $("invFoodPane").style.display = invTab === "food" ? "block" : "none";
+    // -- Onglet Nourriture --
+    if (invTab === "food") {
+      var fHtml = "";
+      if (!foods.length) {
+        fHtml = '<div class="inv-empty">Aucune provision. Les monstres lâchent parfois de la nourriture, ou achètes-en à l\'armurerie !</div>';
+      } else {
+        fHtml = '<div class="bag-grid">';
+        foods.forEach(function (it) {
+          fHtml += '<button class="bag-tile" data-selfit="' + it.id + '" title="' + it.name + ' ×' + (it.qty || 1) + '" style="border-color:' + itemColor(it) + ';position:relative;">' + itemIcon(it) +
+            '<i style="color:' + itemColor(it) + ';">' + it.rarityLabel.charAt(0) + '</i>' +
+            ((it.qty || 1) > 1 ? '<b style="position:absolute;bottom:2px;right:3px;font-size:10px;color:#d4a94e;">×' + it.qty + '</b>' : '') + '</button>';
+        });
+        fHtml += '</div>';
+      }
+      $("foodList").innerHTML = fHtml;
+    }
+    // -- Poupée d'équipement --
+    var dHtml = "";
+    DOLL_ROWS.forEach(function (row) {
+      dHtml += '<div class="doll-row">';
+      row.forEach(function (sl) {
+        if (sl === "AVATAR") {
+          dHtml += '<div class="doll-avatar" title="' + H.name + '">🧑‍🦱</div>';
+          return;
+        }
+        var it = H.equipped[sl];
+        if (it) {
+          dHtml += '<div class="slot-tile" data-inspect="' + sl + '" title="' + it.name + ' [' + (it.rarityLabel || "équipement") + '] ' + bonusTxt(it) + ' — clique pour examiner" style="border-color:' + itemColor(it) + ';position:relative;cursor:pointer;">' +
+            itemIcon(it) + '<small style="color:' + itemColor(it) + ';">' + slotLabel(sl) + '</small>' +
+            '<button data-unequip="' + sl + '" title="Déséquiper ' + it.name + '" style="position:absolute;top:1px;right:1px;font-size:9px;line-height:1;padding:2px 4px;background:#4a1a1a;color:#e8a0a0;border:1px solid #8b1a1a;border-radius:3px;">✕</button></div>';
+        } else {
+          dHtml += '<div class="slot-tile empty" title="' + slotLabel(sl) + ' : vide">▫<small>' + slotLabel(sl) + '</small></div>';
+        }
+      });
+      dHtml += '</div>';
+    });
+    doll.innerHTML = dHtml;
+    // L'avatar de la poupée suit celui du personnage
+    var avBox = doll.querySelector(".doll-avatar");
+    var heroImg = $("heroAvatar");
+    if (avBox && heroImg && heroImg.src && !heroImg.classList.contains("hidden")) {
+      avBox.innerHTML = '<img src="' + heroImg.src + '" alt="' + H.name + '" />';
+    }
+    // -- Sac (onglet équipement : uniquement les objets équipables) --
+    var eq = gears;
+    fuseSelection = fuseSelection.filter(function (id) {
+      return eq.some(function (x) { return x.id === id; });
+    });
+    // La sélection peut être un objet du sac OU une nourriture (chercher
+    // dans tout l'inventaire, pas seulement les équipements — sinon cliquer
+    // sur une nourriture annulait la sélection et rien ne s'affichait)
+    if (invSelected && !H.items.some(function (x) { return x.id === invSelected; })) invSelected = null;
+    $("bagCount").textContent = "(" + eq.length + " objet" + (eq.length > 1 ? "s" : "") + ")";
+    if (!eq.length) {
+      list.innerHTML = '<div class="inv-empty">Ton sac est vide. Achète du matériel à l\'armurerie ou gagne du butin !</div>';
+    } else {
+      var html = '<div class="bag-grid">';
+      eq.forEach(function (it) {
+        var sel = fuseSelection.indexOf(it.id) >= 0;
+        var cur = invSelected === it.id;
+        html += '<button class="bag-tile' + (sel ? " sel" : "") + (cur ? " cur" : "") +
+          '" data-selfit="' + it.id + '" title="' + it.name + (it.rarityLabel ? " [" + it.rarityLabel + "]" : "") + '"' +
+          ' style="border-color:' + itemColor(it) + ';">' + itemIcon(it) +
+          (it.rarityLabel ? '<i style="color:' + itemColor(it) + ';">' + it.rarityLabel.charAt(0) + '</i>' : "") +
+          '</button>';
+      });
+      html += '</div>';
+      list.innerHTML = html;
+    }
+    // -- Panneau de détails de l'objet sélectionné --
+    var sit = null;
+    // Examen d'un objet PORTÉ (clic sur une case de la poupée)
+    if (inspSlot && H.equipped[inspSlot]) {
+      var eq_it = H.equipped[inspSlot];
+      det.innerHTML = '<div class="inv-detail-card" style="border-color:' + itemColor(eq_it) + ';">' +
+        '<span style="color:' + itemColor(eq_it) + ';font-weight:bold;">' + itemIcon(eq_it) + ' ' + itemLabel(eq_it) + '</span>' +
+        '<div style="margin-top:4px;font-size:12px;color:#a08a63;">Porté — ' + slotLabel(inspSlot) + '</div>' +
+        '<div class="inv-detail-btns"><button data-unequip="' + inspSlot + '">✕ Déséquiper</button></div></div>';
+    } else {
+    for (var q = 0; q < H.items.length; q++) if (H.items[q].id === invSelected) sit = H.items[q];
+    if (!sit) {
+      det.innerHTML = '<div class="inv-detail-card" style="color:#6e5b3a;">Touche un objet du sac pour l\'examiner et agir.</div>';
+    } else {
+      var price = sellPrice(sit);
+      var inFuse = fuseSelection.indexOf(sit.id) >= 0;
+      var btns = "";
+      if (sit.food) btns += '<button class="primary" data-eat="' + sit.id + '">🍴 Manger</button>';
+      if (sit.slot === "arme" && sit.hands === 1) {
+        btns += '<button class="primary" data-equip="' + sit.id + '" data-slot="arme">⚔ Main d\'arme</button>' +
+          '<button class="primary" data-equip="' + sit.id + '" data-slot="bouclier">🛡 Off-hand</button>';
+      } else if (sit.slot) {
+        btns += '<button class="primary" data-equip="' + sit.id + '">Équiper</button>';
+      }
+      if (sit.slot && !sit.food) btns += '<button data-fusetoggle="' + sit.id + '">' + (inFuse ? "🔥 Retirer de la forge" : "🔥 Pour la forge") + '</button>';
+      btns += '<button data-sell="' + sit.id + '">💰 Vendre ' + price + ' or</button>';
+      det.innerHTML = '<div class="inv-detail-card" style="border-color:' + itemColor(sit) + ';">' +
+        '<span style="color:' + itemColor(sit) + ';font-weight:bold;">' + itemIcon(sit) + ' ' + itemLabel(sit) +
+          (sit.food && (sit.qty || 1) > 1 ? ' <small style="color:#a08a63;">×' + sit.qty + '</small>' : '') + '</span>' +
+        compareWithEquipped(sit) +
+        '<div class="inv-detail-btns">' + btns + '</div></div>';
+    }
+    } // fin du else (examen d'un objet du sac)
+    // -- Forge --
+    if (fuseSelection.length >= 2 && fuseSelection.length <= 3) {
+      forge.innerHTML = '<button class="primary" id="btnFuse">🔥 Forger : fusionner ' + fuseSelection.length + ' objets</button>' +
+        '<span style="font-size:12px;color:#a08a63;margin-left:8px;">Résultat : rareté re-tirée avec un bonus de chance selon la valeur sacrifiée.</span>';
+    } else {
+      forge.innerHTML = '<span style="font-size:13px;color:#6e5b3a;">Sélectionne 2 ou 3 objets pour la forge (bouton 🔥 des objets équipables).</span>';
+    }
+  }
+
+  function doFuse() {
+    var picked = H.items.filter(function (x) { return fuseSelection.indexOf(x.id) >= 0; });
+    if (picked.length < 2) return;
+    // Bonus de chance selon la qualité sacrifiée
+    var luck = 0;
+    picked.forEach(function (p) {
+      if (p.rarity === "divin") luck += 3;
+      else if (p.rarity === "legendaire") luck += 2;
+      else if (p.rarity === "epique") luck += 1.5;
+      else if (p.rarity === "superieur") luck += 1;
+      else luck += 0.5;
+    });
+    luck = Math.min(6, luck); // plafond
+    // Détruit les objets
+    H.items = H.items.filter(function (x) { return fuseSelection.indexOf(x.id) < 0; });
+    fuseSelection = [];
+    var it = rollLootItem(luck);
+    // Petite chance divine si le sacrifice est haut de gamme
+    if (luck >= 4 && Math.random() < 0.02) {
+      var fSlot = randomSlot();
+      var fHands = rollHands(fSlot);
+      it = {
+        id: "divin_" + Math.floor(Math.random() * 1e9),
+        name: rollItemName(fSlot, fHands, "divin"),
+        rarity: "divin", rarityLabel: "DIVIN", logCls: "loot-divin", divine: true,
+        slot: fSlot, hands: fHands,
+        // Rang DIVIN : toujours au maximum du tirage (comme le drop divin ;
+        // ×2 pour les armes à 2 mains)
+        atk: Math.max(3, Math.round((3 + (3 + Math.floor(H.level / 2))) * 5 * (fHands === 2 ? 2 : 1))),
+        def: Math.max(3, Math.round((3 + (3 + Math.floor(H.level / 2))) * 4))
+      };
+      if (it.slot !== "arme") { it.atk = 0; } else { addWeaponDice(it); it.def = 0; }
+      it.bonusStats = rollBonusLines("divin", Math.floor(H.level / 2));
+      log("🔥🔥 LA FORGE S'EMBRASE ! Les dieux offrent : ", "loot-divin");
+      logLoot("", it);
+    } else {
+      log("🔥 La forge consomme les objets et révèle :", "sys");
+      logLoot("", it);
+    }
+    H.items.push(it);
+    save(); renderAll();
+  }
+
+  // Sélecteur de zone (partagé par toutes les vues d'aventure)
+  function zoneSelHtml() {
+    return '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">' +
+      '<button data-zone="tour" class="' + (advZone === "tour" ? "primary" : "") + '" style="font-size:13px;padding:5px 14px;">🗼 La Grande Tour</button>' +
+      '<button data-zone="test" class="' + (advZone === "test" ? "primary" : "") + '" style="font-size:13px;padding:5px 14px;">🧪 Tour infinie</button>' +
+      '<button data-zone="donjon" class="' + (advZone === "donjon" ? "primary" : "") + '" style="font-size:13px;padding:5px 14px;">🏰 Donjons</button>' +
+      '</div>';
+  }
+  // ---- Vue Donjons : liste des 10 donjons ou run en cours ----
+  function renderDonjons() {
+    show("adventure");
+    if (!H.dgn) H.dgn = { id: null, diff: null, prog: 0, need: 0, cleared: {} };
+    var st = $("advStatus"), ac = $("advActions");
+    st.innerHTML = zoneSelHtml();
+    if (inCombat && foe && foe.adv) {
+      ac.innerHTML = '<p style="font-size:13px;color:#a08a63;">⚔ Combat en cours — il se joue dans l\'onglet <b style="color:#d4a94e;">Combat</b> ci-dessus.</p>';
+      return;
+    }
+    if (H.dgn.id) {
+      // ---- Run en cours ----
+      var D = DUNGEONS[H.dgn.id - 1];
+      var DF = DGN_DIFFS[H.dgn.diff];
+      var bossNext = H.dgn.prog >= H.dgn.need;
+      var mstRun = dgnMastery(H.dgn.id);
+      st.innerHTML += '<p style="font-size:15px;margin-bottom:6px;">🏰 <b>' + D.name + '</b> ' + DF.icon + ' ' + DF.label +
+        (mstRun.tier > 0 ? ' <span style="color:#d4a94e;">★'.repeat(mstRun.tier) + ' +' + Math.round(mstRun.bonus * 100) + '%</span>' : '') +
+        '</p><p style="font-size:13px;color:#a08a63;margin-bottom:6px;">Monstres vaincus : <b style="color:#d4a94e;">' + H.dgn.prog + " / " + H.dgn.need +
+        '</b>' + (bossNext ? ' — <b style="color:#ff6b6b;">⚠ BOSS : ' + D.boss + ' !</b>' : '') +
+        ' · ✦ élites possibles (15 %) · mort = recommencer</p>' +
+        '<div class="bar xp"><div style="width:' + Math.min(100, Math.round(100 * H.dgn.prog / H.dgn.need)) + '%"></div></div>';
+      var prevTxt = bossNext ? "⚔ Affronter " + D.boss : "🚪 Explorer la salle suivante";
+      ac.innerHTML = heroStatLine() +
+        '<button class="primary" data-advfloor="1" style="margin-top:6px;">' + prevTxt + '</button>' +
+        '<button data-advheal="1" ' + (H.gold < 30 ? "disabled" : "") + '>☕ Repos au camp (30 or — vie restaurée)</button>' +
+        '<button data-dgnflee="1" style="margin-top:6px;">🏃 Abandonner le donjon (progression perdue)</button>';
+      return;
+    }
+    // ---- Liste des donjons ----
+    var html = '<p style="font-size:13px;color:#a08a63;margin-bottom:10px;">Zone de farm : <b>butin garanti à 100 %</b> sur chaque monstre, or correct, <b>XP réduite</b>. Le boss de fin peut lâcher un objet <b style="color:#ff3b3b;">DIVIN</b> (1 %). La mort est définitive : le donjon se rejoue depuis le début.</p>';
+    DUNGEONS.forEach(function (d) {
+      var locked = H.level < d.level;
+      var famIco = FAMILY_LABELS[d.family] ? FAMILY_LABELS[d.family].icon : "";
+      var mst = dgnMastery(d.id);
+      var mstTxt = mst.count > 0
+        ? ' · 🎖 Maîtrise : ' + mst.count + "×" + (mst.tier > 0 ? " ★".repeat(mst.tier) + " (+" + Math.round(mst.bonus * 100) + "% or/XP)" : " (prochain palier à " + mst.next + ")")
+        : "";
+      html += '<div style="border:1px solid #3a2a14;border-radius:8px;padding:8px 10px;margin-bottom:8px;' + (locked ? "opacity:0.5;" : "") + 'background:#16100a;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">' +
+        '<div><b style="color:#d4a94e;font-size:14px;">🏰 ' + d.name + '</b> ' + famIco +
+        ' <small style="color:#a08a63;">— requiert niveau ' + d.level + '</small>' +
+        (H.dgn.cleared && (H.dgn.cleared[d.id + "-normal"] || H.dgn.cleared[d.id + "-facile"] || H.dgn.cleared[d.id + "-difficile"]) ? ' <span style="color:#6fd66f;">✔ conquis</span>' : '') +
+        '<br/><small style="color:#a08a63;">Boss : ' + d.boss + ' · ' + d.mobs.length + ' types de créatures' + mstTxt + '</small></div>';
+      if (locked) {
+        html += '<div style="font-size:13px;color:#ff9a3d;">🔒 Niveau ' + d.level + ' requis</div>';
+      } else {
+        html += '<div style="display:flex;gap:6px;">';
+        for (var dk in DGN_DIFFS) {
+          var ddf = DGN_DIFFS[dk];
+          html += '<button data-dgnstart="' + d.id + '" data-dgndiff="' + dk + '" style="font-size:12px;padding:5px 10px;">' + ddf.icon + ' ' + ddf.label + '</button>';
+        }
+        html += '</div>';
+      }
+      html += '</div></div>';
+    });
+    ac.innerHTML = html;
+  }
+  function renderAdventure() {
+    // Zone Donjons : vue dédiée (liste des donjons / run en cours)
+    if (advZone === "donjon") { renderDonjons(); return; }
+    show("adventure");
+    var A = advData(); // progression de la zone ACTIVE (tour ou test)
+    if (!A.maxTower) A.maxTower = A.tower; // téléporteur : tour la plus haute atteinte
+    var st = $("advStatus"), ac = $("advActions");
+    var gf = (A.tower - 1) * 50 + A.floor;
+    var isBoss = A.floor % 10 === 0;
+    if (A.done) {
+      // Anciennes sauvegardes « tours conquises » : l'ascension infinie reprend
+      A.done = false;
+      A.tower = 11; A.floor = 1;
+    }
+    // Sélecteur de zone : La Grande Tour / Tour infinie / Donjons (partagé)
+    var zoneSel = zoneSelHtml();
+    st.innerHTML = zoneSel + '<p style="font-size:15px;margin-bottom:6px;">' +
+      (advZone === "test"
+        ? "🧪 <b>Tour infinie</b> — Étage <b>" + A.floor + "</b>/∞" +
+          ' <small style="color:#a08a63;">(record : étage ' + (A.best || 0) +
+          (A.cp ? ' · repaire : étage ' + A.cp : '') + ')' + (isBoss ? ' — ⚠ BOSS' : '') + '</small>'
+        : "La Grande Tour — Tour <b>" + A.tower + '</b>' +
+          ' — Étage <b>' + A.floor + '</b>/50 <small style="color:#a08a63;">(niveau global ' + gf +
+          (isBoss ? ' — ⚠ BOSS' : '') + ')</small>') +
+      '</p>' +
+      '<div class="bar xp"><div style="width:' + (advZone === "test" ? (A.floor % 10) * 10 : A.floor * 2) + '%"></div></div>';
+    if (inCombat && foe && foe.adv) {
+      ac.innerHTML = '<p style="font-size:13px;color:#a08a63;">⚔ Combat en cours — il se joue dans l\'onglet <b style="color:#d4a94e;">Combat</b> ci-dessus.</p>';
+    } else {
+      var m = makeMonster(A.tower, A.floor);
+      ac.innerHTML = heroStatLine() +
+        '<div style="display:flex;gap:10px;align-items:center;font-size:12px;color:#a08a63;background:#1a1206;border:1px solid #3a2a14;border-radius:6px;padding:6px 8px;margin-bottom:8px;">' +
+        '<img class="opp-thumb big" src="' + m.img + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />' +
+        '<div><b style="color:#d4a94e;">' + m.name + '</b>' +
+        (m.family && FAMILY_LABELS[m.family] ? ' ' + FAMILY_LABELS[m.family].icon : '') +
+        ' — niv. ' + m.level + '<br/>' + statLine(m) + '</div></div>' +
+        '<button class="primary" data-advfloor="1">Explorer l\'étage ' + A.floor +
+        ' — ' + m.name + ' (niv. ' + m.level + ')</button>' +
+        '<button data-advheal="1" ' + (H.gold < 30 ? "disabled" : "") + '>☕ Repos au camp (30 or — vie restaurée)</button>' +
+        // Zone test : reprise au repaire (recommencer l'ascension sans attendre la mort)
+        (advZone === "test" && A.cp && A.floor > (A.cp || 1)
+          ? '<button data-testrestart="1" style="margin-top:6px;">🏕 Reprendre au repaire (étage ' + A.cp + ')</button>'
+          : "") +
+        (function () {
+          // Téléporteur : accès direct au début des tours déjà conquises
+          var maxT = A.maxTower || A.tower;
+          if (maxT <= 2) return ""; // aucune tour 2+ conquise : pas de téléporteur
+          var tp = '<div style="margin-top:10px;padding:8px;border:1px dashed #6e5b3a;border-radius:6px;background:#10100c;">' +
+            '<small style="color:#a08a63;">🌀 Téléporteur — rejoins le début d\'une tour conquise :</small><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">';
+          for (var tt = 2; tt < maxT; tt++) {
+            var cur = A.tower === tt && A.floor === 1;
+            tp += '<button data-advtp="' + tt + '" ' + (cur ? "disabled" : "") + ' style="font-size:12px;padding:4px 10px;">🗼 Tour ' + tt + ' (étage ' + ((tt - 1) * 50 + 1) + ')</button>';
+          }
+          // Retour à la tour frontière (la plus haute atteinte) : évite de
+          // perdre l'accès à sa progression en descendant farmer une tour basse
+          var atFrontier = A.tower === maxT && A.floor === 1;
+          tp += '<button data-advtp="' + maxT + '" ' + (atFrontier ? "disabled" : "") + ' style="font-size:12px;padding:4px 10px;border-color:#6e5b3a;">🚩 Tour ' + maxT + ' — ma progression (étage ' + ((maxT - 1) * 50 + 1) + ')</button>';
+          tp += '</div></div>';
+          return tp;
+        })();
+    }
+    if (!inCombat) {
+      // Carnet de chasse : victimes par famille (les titres en découlent)
+      var huntHtml = '<div style="margin-top:12px;font-size:13px;color:#a08a63;border-top:1px solid #3a2a14;padding-top:8px;"><b style="color:#d4a94e;">📖 Carnet de chasse</b><br/>';
+      var anyKill = false;
+      for (var fam in FAMILY_LABELS) {
+        var hb = (H.familyKills && H.familyKills[fam]) || 0;
+        if (hb > 0) {
+          anyKill = true;
+          var ft = familyTitle(fam);
+          huntHtml += '<span style="margin-right:14px;white-space:nowrap;">' + FAMILY_LABELS[fam].icon + " " + FAMILY_LABELS[fam].label +
+            " : <b>" + hb + "</b>" +
+            (ft.name ? ' <b style="color:#d4a94e;">🎖 ' + ft.name + "</b> (+" + Math.round(ft.atkBonus * 100) + "% att)" : "") + "</span>";
+        }
+      }
+      huntHtml += anyKill ? "</div>" : "Aucune victime pour l'instant — massacre les familles pour gravir les titres.</div>";
+      ac.innerHTML += huntHtml;
+    }
+  }
+
+  function renderShop() {
+    show("shop");
+    var html = "";
+    // -- Stock rotatif d'objets rares (recharge toutes les 4 h / à chaque niveau) --
+    refreshShopStock(false);
+    var stock = shopStock();
+    var nextIn = Math.max(0, SHOP_REFRESH_MS - (Date.now() - (H.shopStockTs || 0)));
+    var hLeft = Math.floor(nextIn / 3600000), mLeft = Math.floor((nextIn % 3600000) / 60000);
+    html += '<div style="color:#d4a94e;font-size:14px;margin-bottom:2px;">🎁 Offres du marchand <small style="color:#a08a63;">(renouvelées à ta prochaine montée de niveau ou dans ' +
+      (hLeft > 0 ? hLeft + ' h ' + mLeft : mLeft) + ' min)</small></div>';
+    stock.forEach(function (it) {
+      if (H.items.some(function (x) { return x.id === it.id; }) ||
+          equippedList(H).some(function (x) { return x.id === it.id; })) return; // déjà acheté
+      html += '<div class="shop-item"><span style="color:' + itemColor(it) + ';font-weight:bold;">' + itemLabel(it) +
+        ' <small style="color:#a08a63">(' + bonusTxt(it) + ' — obj. niv. ' + it.itemLevel + ')</small></span>' +
+        '<button data-buy="' + it.id + '" ' + (H.gold < it.cost ? "disabled" : "") + '>' + it.cost + ' or</button></div>';
+    });
+    // Consommables de base (onguent) toujours disponibles
+    html += '<div style="margin-top:10px;color:#d4a94e;font-size:14px;">Consommables :</div>';
+    SHOP.forEach(function (it) {
+      if (!it.consumable) return; // plus d'équipement de base : uniquement le stock rotatif
+      html += '<div class="shop-item"><span>' + it.name + ' (' + typeLabel(it) + ')' +
+        ' <small style="color:#a08a63;">(' + bonusTxt(it) + ')</small></span>';
+      html += '<button data-buy="' + it.id + '" ' + (H.gold < it.cost ? "disabled" : "") + '>' + it.cost + ' or</button></div>';
+    });
+    html += '<div style="margin-top:10px;color:#d4a94e;font-size:14px;">Auxiliaires (max ' + MAX_COMPANIONS + ') — ils frappent à chaque tour :</div>';
+    COMPANIONS.forEach(function (c) {
+      var owned = H.companions.some(function (x) { return x.id === c.id; });
+      html += '<div class="shop-item"><span>' + c.name +
+        ' <small style="color:#a08a63">(' + c.atk + ' att)</small></span>';
+      if (owned) html += '<span style="color:#8a9;">Engagé</span>';
+      else html += '<button data-hire="' + c.id + '" ' +
+        (H.gold < c.cost || H.companions.length >= MAX_COMPANIONS ? "disabled" : "") + '>' + c.cost + ' or</button>';
+      html += '</div>';
+    });
+    $("shopList").innerHTML = html;
+  }
+
+  // Fiche de stats compacte pour comparer les combattants avant un combat
+  function statLine(f) {
+    f = effOf(f);
+    return '❤ <b>' + (f.hp || f.maxHp || maxHpOf(f)) + '</b>' +
+      ' · ⚔ <b>' + Math.round(dmgOf(f)) + '</b>' +
+      ' · 🛡 <b>' + Math.round(armorOf(f)) + '</b>' +
+      ' · <span style="color:#8a7a5a;">FOR ' + f.str + ' / AGI ' + f.agi + ' / END ' + f.end +
+      ' / CHA ' + (f.cha || 0) + ' / ESQ ' + (f.esq || 0) + '</span>';
+  }
+  function heroStatLine() {
+    return '<div style="font-size:12px;color:#a08a63;background:#1a1206;border:1px solid #3a2a14;border-radius:6px;padding:6px 8px;margin-bottom:10px;">' +
+      '<b style="color:#d4a94e;">' + H.name + ' (toi)</b> — ' + statLine(H) + '</div>';
+  }
+
+  function renderArena() {
+    show("arena");
+    var choose = $("arenaChoose");
+    var maxTier = Math.max(1, Math.min(8, Math.floor((H.wins + 3) / 2)));
+    var html = "<p style='font-size:14px;margin-bottom:6px;'>Choisis un adversaire :</p>" + heroStatLine();
+    for (var t = 1; t <= maxTier; t++) {
+      var f = makeFoe(t);
+      html += '<div class="opp"><img class="opp-thumb" src="' + f.img + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" /><span>' + f.name + ' <small style="color:#a08a63">— niv. ' + f.level + '</small><br/>' +
+        '<small style="font-size:11px;">' + statLine(f) + '</small></span>' +
+        '<button class="primary" data-opp="' + t + '">Combattre</button></div>';
+    }
+    html += '<div style="margin-top:10px;">' +
+      '<button data-tour="' + maxTier + '">🏟 Lancer un tour de l\'arène (3 vagues, difficulté ' + maxTier + ' → ' + (maxTier + 2) + ')</button></div>';
+    var r = makeRival();
+    html += '<div style="margin-top:12px;color:#d4a94e;font-size:14px;">Duel au niveau de ta progression :</div>' +
+      '<div class="opp"><span>' + r.name + ' <small style="color:#a08a63">— rival, niv. ' + r.level +
+      ' (x1.5 or, x1.4 XP)</small><br/>' +
+      '<small style="font-size:11px;">' + statLine(r) + '</small></span>' +
+      '<button class="primary" data-rival="1">Defier</button></div>';
+    choose.innerHTML = html;
+  }
+
+  function updateCombatBars() {
+    if (!foe) return;
+    $("fHeroBar").style.width = (100 * H.hp / H.maxHp) + "%";
+    $("fHeroHp").textContent = H.hp + " / " + H.maxHp;
+    $("fFoeBar").style.width = (100 * foe.hp / foe.maxHp) + "%";
+    $("fFoeHp").textContent = foe.hp + " / " + foe.maxHp;
+    // Portrait du héros : bascule sain/blessé/critique quand l'état change
+    var st = heroAvatarState();
+    if (st !== lastAvatarState) {
+      lastAvatarState = st;
+      var src = heroAvatarSrc();
+      var hImg = $("fHeroImg");
+      var av = $("heroAvatar");
+      // Repli : si l'image d'état (blessé/critique) échoue au chargement,
+      // on garde l'avatar sain plutôt que de faire disparaître le portrait
+      if (src && hImg) {
+        if (hImg.style.display === "block") {
+          hImg.onerror = function () { hImg.src = AVATAR_URLS[H.gender].sain; hImg.onerror = null; };
+          hImg.src = src;
+        }
+      }
+      if (src && av && !av.classList.contains("hidden")) {
+        av.onerror = function () { av.src = AVATAR_URLS[H.gender].sain; av.onerror = null; };
+        av.src = src;
+      }
+    }
+  }
+
+  // ---- Sauvegarde ----
+  function save() {
+    H.lastSeen = Date.now();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(H)); } catch (e) {}
+    cloudPushSoon(); // synchro cloud automatique (débounce)
+  }
+  // Régénération naturelle : 10 % de la vie max par minute réelle écoulée
+  function applyRegen() {
+    if (!H.lastSeen) return;
+    var mins = (Date.now() - H.lastSeen) / 60000;
+    if (mins <= 0) return;
+    var heal = Math.floor(mins * 0.10 * maxHpOf(H)); // 10 % par minute
+    if (heal <= 0) return;
+    var before = H.hp;
+    H.hp = Math.min(maxHpOf(H), H.hp + heal);
+    if (H.hp > before) {
+      var realMins = Math.floor(mins);
+      log("⏳ Régénération naturelle : tu récupères " + (H.hp - before) + " PV pendant ton absence" +
+        (realMins >= 1 ? " (~" + realMins + " min)" : "") + ".", "sys");
+    }
+    H.lastSeen = Date.now();
+  }
+  // Migration d'une sauvegarde (ancienne ou importée) vers la version actuelle du jeu
+  function migrate(h) {
+    if (!h) return h;
+    h.guard = false;
+    h.companions = h.companions || [];
+    h.tour = null;
+    h.adv = h.adv || null;
+    h.test = h.test || null; // Zone test : progression indépendante (copie de la tour)
+    // Donjons : structure par défaut pour les anciennes sauvegardes
+    if (!h.dgn || typeof h.dgn !== "object") h.dgn = { id: null, diff: null, prog: 0, need: 0, cleared: {} };
+    h.dgn.id = h.dgn.id || null;
+    h.dgn.diff = h.dgn.diff || null;
+    h.dgn.prog = h.dgn.prog || 0;
+    h.dgn.need = h.dgn.need || 0;
+    if (!h.dgn.cleared || typeof h.dgn.cleared !== "object") h.dgn.cleared = {};
+    if (!h.dgn.clears || typeof h.dgn.clears !== "object") h.dgn.clears = {}; // maîtrises : 1 point par nettoyage
+    // Migration Zone test → tour infinie : aplatit l'ancienne structure
+    // (tour/étage) en une simple progression infinie, conserve le repaire
+    if (h.test) {
+      var oldFloor = ((h.test.tower || 1) - 1) * 50 + (h.test.floor || 1);
+      h.test = { tower: 1, floor: oldFloor, best: h.test.best || 0, cp: h.test.cp || 0, maxTower: 1 };
+    }
+    h.trains = h.trains || { str: 0, agi: 0, end: 0, cha: 0, esq: 0 };
+    // Points de compétence : répare les vieilles sauvegardes (undefined + 3 = NaN)
+    if (typeof h.points !== "number" || isNaN(h.points)) h.points = 0;
+    // Or négatif : vestige du bug de la tour 1 (avance −260 → gains d'or négatifs)
+    if (typeof h.gold !== "number" || isNaN(h.gold) || h.gold < 0) h.gold = Math.max(0, Math.round(h.gold || 0));
+    if (h.cha === undefined) h.cha = 4;
+    if (h.esq === undefined) h.esq = 3;
+    if (!h.familyKills) h.familyKills = {};
+    if (!h.gender) h.gender = "homme";
+    if (!h.clsLabel) h.clsLabel = h.gender === "femme" ? "Gladiatrice" : "Gladiateur";
+    if (!h.maxHp) h.maxHp = maxHpOf(h);
+    if (!h.shopStock) h.shopStock = null; // sera généré à la première visite de l'armurerie
+    if (!h.shopStockTs) h.shopStockTs = 0;
+    // Nourritures : quantité implicite 1 pour les anciennes sauvegardes (empilement)
+    if (h.items) for (var fq = 0; fq < h.items.length; fq++) {
+      if (h.items[fq].food && !h.items[fq].qty) h.items[fq].qty = 1;
+    }
+    // Migration équipement : slots aléatoires pour les anciens objets
+    if (!h.equipped) h.equipped = emptyEquipped();
+    for (var key in h.equipped) if (!h.equipped[key]) h.equipped[key] = null;
+    if (h.items) for (var m = 0; m < h.items.length; m++) {
+      // Les nourritures ne sont pas des équipements : on leur retire tout slot/mains hérité d'une ancienne migration
+      if (h.items[m].food) { delete h.items[m].slot; delete h.items[m].hands; continue; }
+      if (!h.items[m].slot) {
+        h.items[m].slot = randomSlot();
+        log("Migration : " + h.items[m].name + " est désormais un objet de type " + slotLabel(h.items[m].slot) + ".", "sys");
+      }
+      if (h.items[m].hands === undefined) h.items[m].hands = rollHands(h.items[m].slot);
+    }
+    return h;
+  }
+
+  function load() {
+    try {
+      var s = localStorage.getItem(SAVE_KEY);
+      if (!s) return null;
+      var h = JSON.parse(s);
+      if (h && h.name && h.level) {
+        var hh = migrate(h);
+        // Restaure la zone d'aventure active (La Grande Tour par défaut)
+        advZone = (hh && (hh.zone === "test" || hh.zone === "donjon")) ? hh.zone : "tour";
+        return hh;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // ---- Connexion & sauvegarde cloud (Firebase : Auth + Firestore) ----
+  // ⚙️ CONFIGURATION : après avoir créé ton projet Firebase (console.firebase.google.com),
+  // remplace les valeurs ci-dessous par celles de TA config (Paramètres du projet → Vos applications).
+  var FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBcNpytYrMMgbbunGcQ_WZa3MjJJdYofFk",
+    authDomain: "arena-maxima.firebaseapp.com",
+    projectId: "arena-maxima",
+    storageBucket: "arena-maxima.firebasestorage.app",
+    messagingSenderId: "468960318405",
+    appId: "1:468960318405:web:ccc07090ce6a54309671ac"
+  };
+  var fbReady = (typeof firebase !== "undefined") && FIREBASE_CONFIG.apiKey.indexOf("TA_CLE_API") !== 0;
+  var fbAuth = null, fbDb = null, authUser = null, fbBooted = false;
+  if (fbReady) {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    fbAuth = firebase.auth();
+    fbDb = firebase.firestore();
+  } else {
+    // SDK absent (aperçu canvas qui bloque les CDN) ou config manquante :
+    // message explicite au lieu d'un crash silencieux
+    document.addEventListener("DOMContentLoaded", function () {
+      var el = document.getElementById("authStatus");
+      var sdkMissing = typeof firebase === "undefined";
+      if (el) el.innerHTML = sdkMissing
+        ? '⚠️ SDK Firebase non chargé (normal dans l\'aperçu du canvas — teste la version déployée sur Netlify).'
+        : '⚠️ Firebase n\'est pas configuré.<br/>Suis le guide de configuration fourni.';
+    });
+  }
+  function cloudStatus(msg, ok) {
+    var el = $("cloudStatus");
+    if (el) { el.textContent = msg; el.style.color = ok ? "#8a9" : "#c96"; }
+  }
+  function authStatus(msg, ok) {
+    var el = $("authStatus");
+    if (el) { el.textContent = msg || ""; el.style.color = ok ? "#8a9" : "#c96"; }
+  }
+  // Messages d'erreur Firebase traduits en français
+  function authErrMsg(e) {
+    var c = (e && e.code) || "";
+    if (c === "auth/invalid-email") return "Adresse e-mail invalide.";
+    if (c === "auth/missing-password") return "Entre un mot de passe (6 caractères min.).";
+    if (c === "auth/weak-password") return "Mot de passe trop faible : 6 caractères minimum.";
+    if (c === "auth/email-already-in-use") return "Un compte existe déjà avec cette adresse — connecte-toi.";
+    if (c === "auth/invalid-credential" || c === "auth/wrong-password" || c === "auth/user-not-found") return "E-mail ou mot de passe incorrect.";
+    if (c === "auth/too-many-requests") return "Trop de tentatives — réessaie dans quelques minutes.";
+    if (c === "auth/network-request-failed") return "Erreur réseau — vérifie ta connexion.";
+    if (c === "auth/operation-not-allowed") return "Connexion e-mail/mot de passe désactivée dans la console Firebase (Authentication → Sign-in method).";
+    return "Erreur : " + ((e && e.message) || "inconnue");
+  }
+  function showAuthOverlay(show) {
+    var ov = document.getElementById("authOverlay");
+    if (ov) ov.style.display = show ? "block" : "none";
+  }
+  // Écrit la sauvegarde du personnage dans Firestore (users/{uid}/characters/{charId})
+  function charRef(charId) {
+    return fbDb.collection("users").doc(authUser.uid).collection("characters").doc(charId);
+  }
+  function newCharId() {
+    return "char_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
+  }
+  function cloudPush(silent) {
+    if (!fbReady || !authUser || !H || !H.name) return;
+    if (!H.charId) H.charId = newCharId();
+    var payload = { updatedAt: Date.now(), save: H };
+    charRef(H.charId).set(payload)
+      .then(function () { if (!silent) cloudStatus("☁ Sauvegardé", true); })
+      .catch(function (err) { if (!silent) cloudStatus("⚠ Cloud injoignable", false); });
+  }
+  var cloudTimer = null;
+  function cloudPushSoon() {
+    if (cloudTimer) return;
+    cloudTimer = setTimeout(function () { cloudTimer = null; cloudPush(true); }, 4000);
+  }
+  var syncInterval = null;
+  function startAutoSync() {
+    cloudPushSoon();
+    if (!syncInterval) syncInterval = setInterval(function () { cloudPush(true); }, 60000);
+  }
+  function renderSaveBlock() {
+    var el = $("accountEmail");
+    if (el) el.textContent = (authUser && authUser.email) ? authUser.email : "—";
+  }
+  // ---- Sélection de personnage (multi-personnages par compte) ----
+  function showCharSelect(show) {
+    var ov = document.getElementById("charSelectOverlay");
+    if (ov) ov.style.display = show ? "block" : "none";
+  }
+  function charSelectStatus(msg, ok) {
+    var el = $("charSelectStatus");
+    if (el) { el.textContent = msg || ""; el.style.color = ok ? "#8a9" : "#c96"; }
+  }
+  function charPortrait(s) {
+    var src = (s.gender && AVATAR_URLS[s.gender]) ? AVATAR_URLS[s.gender].sain : "";
+    return '<img src="' + src + '" alt="" onerror="this.style.display=\'none\'" ' +
+      'style="width:100%;height:140px;object-fit:cover;border-radius:8px;border:2px solid #6e5b3a;background:#10100c;" />';
+  }
+  // Affiche l'écran de sélection à partir de la liste des personnages du compte
+  var currentChars = [];
+  function renderCharSelect(chars) {
+    currentChars = chars;
+    var list = $("charList");
+    if (!list) return;
+    chars.sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+    var html = "";
+    chars.forEach(function (c) {
+      html += '<div data-char="' + c.id + '" class="charCard" style="width:170px;padding:10px;background:#171208;border:2px solid #4a3a20;border-radius:10px;text-align:center;cursor:pointer;">' +
+        charPortrait(c.save) +
+        '<div style="margin-top:8px;font-size:15px;font-weight:bold;color:#d4a94e;">' + c.save.name + '</div>' +
+        '<div style="font-size:12px;color:#a08a63;">Niveau ' + c.save.level + '</div>' +
+        '<div style="font-size:11px;color:#6e5b3a;margin-top:2px;">' + (c.save.clsLabel || "") + '</div>' +
+        '<button class="primary" data-play="' + c.id + '" style="font-size:12px;padding:5px 14px;margin-top:8px;">⚔ Jouer</button> ' +
+        '<button data-del="' + c.id + '" style="font-size:11px;padding:5px 10px;margin-top:8px;color:#c96;">🗑</button>' +
+        '</div>';
+    });
+    html += '<div id="charNewCard" style="width:170px;padding:10px;background:#171208;border:2px dashed #6e5b3a;border-radius:10px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;">' +
+      '<div style="font-size:30px;">➕</div>' +
+      '<div style="margin-top:8px;font-size:13px;color:#a08a63;">Créer un nouveau<br/>personnage</div></div>';
+    list.innerHTML = html;
+    showCharSelect(true);
+  }
+  // Charge la liste des personnages puis affiche l'écran de sélection
+  function loadAccountSave(user) {
+    authUser = user;
+    renderSaveBlock();
+    showAuthOverlay(false);
+    fbDb.collection("users").doc(user.uid).collection("characters").get()
+      .then(function (snap) {
+        var chars = [];
+        snap.forEach(function (doc) {
+          var d = doc.data();
+          if (d.save && d.save.name) chars.push({ id: doc.id, save: d.save, updatedAt: d.updatedAt || 0 });
+        });
+        // Migration : ancienne sauvegarde mono-personnage stockée dans users/{uid}.save
+        fbDb.collection("users").doc(user.uid).get().then(function (legacy) {
+          var migrateLegacy = function (data) {
+            var s = migrate(data.save);
+            var cid = s.charId || newCharId();
+            s.charId = cid;
+            return charRef(cid).set({ updatedAt: Date.now(), save: s }).then(function () {
+              return fbDb.collection("users").doc(user.uid).delete();
+            }).then(function () {
+              chars.push({ id: cid, save: s, updatedAt: Date.now() });
+              openCharFlow(chars);
+            });
+          };
+          if (legacy.exists && legacy.data().save && legacy.data().save.name) {
+            migrateLegacy(legacy.data()).catch(function () { openCharFlow(chars); });
+          } else {
+            openCharFlow(chars);
+          }
+        }).catch(function () { openCharFlow(chars); });
+      })
+      .catch(function (err) {
+        log("⚠ Lecture cloud impossible (" + (err && err.code ? err.code : "erreur") + ") — vérifie les règles Firestore (la sous-collection characters doit être autorisée).", "sys");
+        cloudStatus("⚠ Lecture cloud impossible", false);
+        // Mode dégradé hors ligne : joue avec la sauvegarde locale si présente
+        var local = load();
+        if (local) { H = local; afterLogin(); } else { H = null; afterLogin(); }
+      });
+  }
+  function openCharFlow(chars) {
+    if (chars.length === 0) {
+      // Aucun personnage : écran de création directement
+      H = null;
+      showCharSelect(false);
+      afterLogin();
+    } else {
+      renderCharSelect(chars);
+    }
+  }
+  // Joue le personnage choisi
+  function playChar(id, chars) {
+    var found = null;
+    for (var i = 0; i < chars.length; i++) if (chars[i].id === id) found = chars[i];
+    if (!found) return;
+    H = migrate(found.save);
+    H.charId = id;
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(H)); } catch (e) {}
+    showCharSelect(false);
+    log("☁ " + H.name + " entre dans l'arène (niveau " + H.level + ").", "gold");
+    afterLogin();
+  }
+  // Suppression sécurisée : demande de taper exactement le nom du personnage
+  function deleteChar(id, chars) {
+    var found = null;
+    for (var i = 0; i < chars.length; i++) if (chars[i].id === id) found = chars[i];
+    if (!found) return;
+    var list = $("charList");
+    // Affiche le formulaire de confirmation dans la carte
+    var cards = list.querySelectorAll("[data-char]");
+    for (var k = 0; k < cards.length; k++) {
+      if (cards[k].getAttribute("data-char") === id) {
+        cards[k].innerHTML =
+          '<div style="font-size:12px;color:#c96;padding:6px;">Supprimer <b>' + found.save.name + '</b> ?<br/>' +
+          'Cette action est <b>définitive</b>.</div>' +
+          '<div style="font-size:11px;color:#a08a63;padding:0 6px;">Tape le nom exact du personnage pour confirmer :</div>' +
+          '<input type="text" data-delname="' + id + '" placeholder="' + found.save.name + '" style="width:90%;box-sizing:border-box;margin:6px auto;display:block;padding:5px;font-size:12px;background:#10100c;color:#d4a94e;border:1px solid #8b1a1a;border-radius:4px;" />' +
+          '<button class="primary" data-delyes="' + id + '" style="font-size:11px;padding:4px 10px;background:#8b1a1a;">Supprimer définitivement</button> ' +
+          '<button data-delno="1" style="font-size:11px;padding:4px 10px;margin-top:6px;">Annuler</button>';
+      }
+    }
+  }
+  function afterLogin() {
+    if (fbBooted) { renderAll(); renderSaveBlock(); return; }
+    fbBooted = true;
+    if (H && H.name) {
+      applyRegen();
+      log("Retour dans l'arène, " + H.name + " !", "sys");
+      setInterval(function () { applyRegen(); renderAll(); }, 30000);
+    }
+    renderAll();
+    renderSaveBlock();
+    startAutoSync();
+  }
+  // État d'authentification : connexion obligatoire pour jouer
+  if (fbReady) {
+    firebase.auth().onAuthStateChanged(function (user) {
+      if (user) {
+        loadAccountSave(user);
+      } else {
+        authUser = null;
+        showAuthOverlay(true);
+        renderSaveBlock();
+      }
+    });
+  }
+
+  // ---- Événements ----
+  // Création : choix d'avatar (genre), puis nom, puis bouton Jouer
+  var chosenGender = "homme";
+  Array.prototype.forEach.call(document.querySelectorAll(".avatarCard"), function (card) {
+    card.addEventListener("click", function () {
+      chosenGender = card.getAttribute("data-gender");
+      Array.prototype.forEach.call(document.querySelectorAll(".avatarCard"), function (c2) {
+        c2.classList.toggle("selected", c2 === card);
+      });
+    });
+  });
+  document.querySelector('.avatarCard[data-gender="homme"]').classList.add("selected");
+  // Repli hors connexion : si la photo ne charge pas, on affiche le SVG intégré
+  [["imgHomme", "svgHomme"], ["imgFemme", "svgFemme"]].forEach(function (pair) {
+    var img = $(pair[0]);
+    if (!img) return;
+    img.addEventListener("error", function () {
+      img.classList.add("hidden");
+      $(pair[1]).classList.remove("hidden");
+    });
+  });
+  $("btnPlay").addEventListener("click", function () {
+    try {
+      var name = $("heroName").value.trim() || (chosenGender === "femme" ? "Maxima" : "Maximus");
+      H = newHero(name, chosenGender);
+      H.charId = newCharId(); // identifiant cloud du personnage
+      H.hp = maxHpOf(H);
+      save();
+      log("Bienvenue dans l'arène, " + H.name + (chosenGender === "femme" ? " la gladiatrice" : " le gladiateur") + " !", "sys");
+      renderAll();
+    } catch (err) {
+      // Diagnostic visible en cas d'erreur au démarrage
+      var msg = document.createElement("div");
+      msg.style.cssText = "color:#ff6b6b;background:#2a1010;border:1px solid #ff6b6b;border-radius:6px;padding:10px;margin-top:10px;font-size:13px;";
+      msg.textContent = "Erreur au lancement : " + (err && err.message ? err.message : err);
+      $("creation").appendChild(msg);
+      if (typeof console !== "undefined" && console.error) console.error(err);
+    }
+  });
+
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    // La cible est soit un bouton, soit une case d'examen (div data-inspect :
+    // les cases portées sont des divs pour pouvoir contenir le bouton ✕)
+    while (t && t !== document && t.tagName !== "BUTTON" &&
+           !(t.getAttribute && t.getAttribute("data-inspect"))) t = t.parentNode;
+    if (!t || t === document) return;
+
+    if (t.getAttribute("data-opp") && !inCombat) {
+      divineThisCombat = 0;
+      foe = makeFoe(parseInt(t.getAttribute("data-opp"), 10));
+      inCombat = true; H.guard = false;
+      log("--- Combat contre " + foe.name + " (niv. " + foe.level + ") ---", "sys");
+      renderAll();
+    }
+    if (t.id === "btnAttack" && inCombat) attack(1, 0, "frappe");
+    if (t.id === "btnHeavy" && inCombat) attack(1.7, -0.15, "lance un coup puissant");
+    if (t.id === "btnDefend" && inCombat) {
+      H.guard = true;
+      log(H.name + " se met en garde (dégâts subis réduits de moitié).", "sys");
+      foeTurn();
+    }
+    if (t.getAttribute("data-buy")) {
+      var it = null;
+      var fromStock = false;
+      for (var i = 0; i < SHOP.length; i++) if (SHOP[i].id === t.getAttribute("data-buy")) it = SHOP[i];
+      if (!it) {
+        // Offre du marchand (stock rotatif)
+        var stock = shopStock();
+        for (var s = 0; s < stock.length; s++) if (stock[s].id === t.getAttribute("data-buy")) { it = stock[s]; fromStock = true; }
+      }
+      if (it && H.gold >= it.cost) {
+        H.gold -= it.cost;
+        if (it.consumable) {
+          H.hp = maxHpOf(H);
+          log("Tu utilises l'onguent : vie entièrement restaurée.", "gold");
+        } else if (fromStock) {
+          // L'objet du stock garde sa rareté ; on retire l'offre du marchand
+          H.items.push({
+            id: it.id, name: it.name, rarity: it.rarity, rarityLabel: it.rarityLabel, logCls: it.logCls,
+            slot: it.slot, hands: it.hands || 0, atk: it.atk, atkBase: it.atkBase, atkDice: it.atkDice, def: it.def,
+            bonusStats: it.bonusStats
+          });
+          H.shopStock = H.shopStock.filter(function (x) { return x.id !== it.id; });
+          log("Tu achètes : " + it.name + " [" + it.rarityLabel + "] (" + bonusTxt(it) + "). Équipe-le dans l'inventaire !", "gold");
+        } else {
+          H.items.push({ id: it.id, atk: it.atk, atkBase: it.atkBase, atkDice: it.atkDice, def: it.def, slot: it.slot, name: it.name, bonusStats: it.bonusStats });
+          log("Tu achètes : " + it.name + " (" + bonusTxt(it) + "). Équipe-le dans l'inventaire !", "gold");
+        }
+        save(); renderAll();
+      }
+    }
+    if (t.getAttribute("data-hire")) {
+      var cid = t.getAttribute("data-hire");
+      var c = null;
+      for (var j = 0; j < COMPANIONS.length; j++) if (COMPANIONS[j].id === cid) c = COMPANIONS[j];
+      if (c && H.gold >= c.cost && H.companions.length < MAX_COMPANIONS) {
+        H.gold -= c.cost;
+        H.companions.push({ id: c.id, name: c.name, atk: c.atk, agi: c.agi });
+        log("Tu engages un auxiliaire : " + c.name + " (+" + c.atk + " att par tour).", "gold");
+        save(); renderAll();
+      }
+    }
+    if (t.id === "invTabEquip") { if (invTab !== "equip") { invTab = "equip"; renderInventory(); } return; }
+    if (t.id === "invTabFood") { if (invTab !== "food") { invTab = "food"; renderInventory(); } return; }
+    if (t.getAttribute("data-inspect")) {
+      // Examine l'objet porté d'un slot (le ✕ reste le seul moyen de déséquiper)
+      inspSlot = t.getAttribute("data-inspect");
+      invSelected = null;
+      renderInventory();
+    }
+    if (t.getAttribute("data-selfit")) {
+      invSelected = t.getAttribute("data-selfit");
+      inspSlot = null;
+      renderInventory();
+    }
+    if (t.getAttribute("data-fusetoggle")) {
+      var fid = t.getAttribute("data-fusetoggle");
+      if (fuseSelection.indexOf(fid) >= 0) {
+        fuseSelection = fuseSelection.filter(function (x) { return x !== fid; });
+      } else {
+        if (fuseSelection.length < 3) fuseSelection.push(fid);
+        else log("La forge accepte 3 objets maximum.", "sys");
+      }
+      renderInventory();
+    }
+    if (t.id === "btnFuse") doFuse();
+    if (t.getAttribute("data-eat")) eatFood(t.getAttribute("data-eat"));
+    if (t.getAttribute("data-train")) {
+      var stat = t.getAttribute("data-train");
+      var cost = trainCost(stat);
+      if (statCapLeft(stat) <= 0) {
+        log("⚠ Plafond atteint pour cette stat (" + statCapOf(H.level) + " au niveau " + H.level + ") — monte de niveau pour le repousser.", "sys");
+      } else if (H.gold >= cost) {
+        H.gold -= cost;
+        H.trains[stat] = (H.trains[stat] || 0) + 1;
+        if (stat === "str") H.str++;
+        if (stat === "agi") H.agi++;
+        if (stat === "end") { H.end++; H.hp += 6; }
+        if (stat === "cha") H.cha++;
+        if (stat === "esq") H.esq++;
+        var td = null;
+        for (var k = 0; k < TRAIN_DEFS.length; k++) if (TRAIN_DEFS[k].id === stat) td = TRAIN_DEFS[k];
+        log("🏛 " + td.label + " terminé : " + td.desc + " (-" + cost + " or).", "gold");
+        save(); renderAll();
+      }
+    }
+    if (t.getAttribute("data-equip")) equipItem(t.getAttribute("data-equip"), t.getAttribute("data-slot"));
+    if (t.getAttribute("data-unequip")) unequipItem(t.getAttribute("data-unequip"));
+    if (t.getAttribute("data-sell")) {
+      sellItem(t.getAttribute("data-sell"));
+      return;
+    }
+    if (t.getAttribute("data-advtp") && !inCombat) {
+      // Téléporteur : rejoindre le début d'une tour déjà conquise (zone active)
+      var tpT = parseInt(t.getAttribute("data-advtp"), 10);
+      var Atp = advData();
+      var maxT = Atp.maxTower || Atp.tower;
+      if (tpT >= 2 && tpT <= maxT) {
+        Atp.tower = tpT;
+        Atp.floor = 1;
+        log("🌀 Le téléporteur t'aspire : tu réapparais à l'entrée de la tour " + tpT + " (étage " + ((tpT - 1) * 50 + 1) + ")" + (advZone === "test" ? " [Zone test]" : "") + ".", "sys");
+        save(); renderAll();
+      }
+    }
+    if (t.getAttribute("data-zone") && !inCombat) {
+      // Sélecteur de zone : basculer entre La Grande Tour, la Zone test et les Donjons
+      var z = t.getAttribute("data-zone");
+      if (z === "test" || z === "tour" || z === "donjon") {
+        advZone = z; H.zone = z;
+        log(z === "test" ? "🧪 Tu pénètres dans la Zone test — une copie conforme de la tour. Progression indépendante."
+          : z === "donjon" ? "🏰 Tu descends dans les Donjons — zone de farm : butin garanti, XP réduite, mort définitive."
+          : "🗼 Tu reviens dans La Grande Tour.", "sys");
+        save(); renderAll();
+      }
+    }
+    if (t.getAttribute("data-dgnstart") && !inCombat) {
+      // Entrée dans un donjon : difficulté choisie via data-dgndiff
+      var dId = parseInt(t.getAttribute("data-dgnstart"), 10);
+      var dDk = t.getAttribute("data-dgndiff") || "normal";
+      var dD = DUNGEONS[dId - 1];
+      if (dD && H.level >= dD.level) {
+        if (!H.dgn) H.dgn = { id: null, diff: null, prog: 0, need: 0, cleared: {} };
+        if (!H.dgn.cleared) H.dgn.cleared = {};
+        H.dgn.id = dId; H.dgn.diff = dDk; H.dgn.prog = 0;
+        H.dgn.need = 10 + Math.floor(Math.random() * 11); // 10 à 20 monstres avant le boss
+        H.zone = "donjon"; advZone = "donjon";
+        log("🏰 Tu entres dans " + dD.name + " [" + DGN_DIFFS[dDk].label + "] — " + H.dgn.need + " monstres à abattre avant " + dD.boss + ".", "sys");
+        save(); renderAll();
+      }
+    }
+    if (t.getAttribute("data-dgnflee") && !inCombat) {
+      // Abandon du donjon : progression perdue, retour à l'entrée
+      if (H.dgn && H.dgn.id) {
+        var dQ = DUNGEONS[H.dgn.id - 1];
+        H.dgn.id = null; H.dgn.prog = 0; H.dgn.need = 0;
+        log("🏃 Tu abandonnes " + dQ.name + " — la progression du donjon est perdue.", "sys");
+        save(); renderAll();
+      }
+    }
+    if (t.getAttribute("data-testrestart") && !inCombat && advZone === "test") {
+      var At = advData();
+      if (At.cp && At.floor > At.cp) {
+        At.floor = At.cp;
+        log("🏕 [Zone test] Tu reprends l'ascension au repaire : étage " + At.cp + ".", "sys");
+        save(); renderAll();
+      }
+    }
+    if (t.getAttribute("data-advfloor") && !inCombat) {
+      divineThisCombat = 0;
+      if (advZone === "donjon" && H.dgn && H.dgn.id) {
+        // Donjon : salle suivante ou boss de fin
+        var dgnBoss = H.dgn.prog >= H.dgn.need;
+        foe = makeDungeonMonster(H.dgn.id, H.dgn.diff, dgnBoss);
+        inCombat = true; H.guard = false;
+        log(dgnBoss
+          ? "--- 🏰 " + DUNGEONS[H.dgn.id - 1].name + " : " + foe.name + " (BOSS DU DONJON) apparaît ! ---"
+          : "--- 🏰 " + DUNGEONS[H.dgn.id - 1].name + " — salle " + (H.dgn.prog + 1) + "/" + H.dgn.need + " : " + foe.name + " apparaît ! ---", "sys");
+        renderAll();
+      } else {
+        var Afl = advData();
+        foe = makeMonster(Afl.tower, Afl.floor);
+        inCombat = true; H.guard = false;
+        log("--- " + (advZone === "test" ? "🧪 [Zone test]" : "🗼") + " Étage " + Afl.floor + " (tour " + Afl.tower + ") : " + foe.name + " apparaît ! ---", "sys");
+        renderAll();
+      }
+    }
+    if (t.getAttribute("data-advattack") && inCombat) attack(1, 0, "frappe");
+    if (t.getAttribute("data-advheavy") && inCombat) attack(1.7, -0.15, "lance un coup puissant");
+    if (t.getAttribute("data-advdefend") && inCombat) {
+      H.guard = true;
+      log(H.name + " se met en garde (dégâts subis réduits de moitié).", "sys");
+      foeTurn();
+    }
+    if (t.getAttribute("data-advflee") && inCombat) {
+      var fledDgn = foe && foe.zone === "donjon";
+      inCombat = false; foe = null; H.guard = false;
+      H.hp = Math.max(1, Math.round(H.maxHp * 0.4));
+      log("Tu fuis l'étage en catastrophe...", "sys");
+      // Fuir dans un donjon = mort symbolique : le donjon se recommence
+      if (fledDgn && H.dgn && H.dgn.id) {
+        H.dgn.prog = 0;
+        log("🏰 Tu sors de " + DUNGEONS[H.dgn.id - 1].name + " en fuyant — la progression du donjon est perdue.", "sys");
+      }
+      save(); renderAll();
+    }
+    if (t.getAttribute("data-advheal")) {
+      if (H.gold >= 30) {
+        H.gold -= 30;
+        H.hp = maxHpOf(H);
+        log("Tu te reposes au camp de base : vie entièrement restaurée (-30 or).", "gold");
+        save(); renderAll();
+      }
+    }
+    if (t.getAttribute("data-rival") && !inCombat) {
+      foe = makeRival();
+      inCombat = true; H.guard = false;
+      log("--- Duel de rivaux contre " + foe.name + " (niv. " + foe.level + ") ---", "sys");
+      renderAll();
+    }
+    if (t.getAttribute("data-tour") && !inCombat) {
+      var tier = parseInt(t.getAttribute("data-tour"), 10);
+      H.tour = { wave: 1, tier: tier };
+      foe = makeFoe(tier);
+      inCombat = true; H.guard = false;
+      log("🏟 Le tour de l\'arène commence ! Vague 1/3 : " + foe.name + " (niv. " + foe.level + ").", "sys");
+      renderAll();
+    }
+    if (t.id === "btnCharList") {
+      // Retour à la liste des personnages : recharge la liste du compte
+      if (fbReady && authUser) {
+        fbDb.collection("users").doc(authUser.uid).collection("characters").get()
+          .then(function (snap) {
+            var chars = [];
+            snap.forEach(function (doc) {
+              var d = doc.data();
+              if (d.save && d.save.name) chars.push({ id: doc.id, save: d.save, updatedAt: d.updatedAt || 0 });
+            });
+            renderCharSelect(chars);
+          })
+          .catch(function (err) {
+            log("⚠ Impossible de charger la liste des personnages (règles Firestore ?) : " + (err && err.code ? err.code : "erreur"), "sys");
+            cloudStatus("⚠ Cloud injoignable", false);
+          });
+      }
+    }
+    if (t.id === "btnLogout") {
+      if (fbReady && fbAuth) {
+        fbAuth.signOut().then(function () { window.location.reload(); });
+      }
+    }
+    if (t.id === "btnReset") {
+      // Affiche la confirmation au lieu de supprimer directement
+      $("resetConfirm").classList.remove("hidden");
+    }
+    if (t.id === "btnResetNo") {
+      $("resetConfirm").classList.add("hidden");
+    }
+    if (t.id === "btnResetYes") {
+      $("resetConfirm").classList.add("hidden");
+      try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+      // Supprime le personnage actif du compte, puis retour à l'écran de sélection
+      var doReload = function () { window.location.reload(); };
+      if (fbReady && fbAuth && authUser && H && H.charId) {
+        charRef(H.charId).delete().then(doReload).catch(doReload);
+      } else {
+        doReload();
+      }
+    }
+  });
+
+  // ---- Clics de l'écran de sélection de personnage ----
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t || !t.closest || !t.closest("#charSelectOverlay")) return;
+    // Ne pas interpréter les clics dans les champs de saisie (confirmation de suppression)
+    if (t.tagName === "INPUT" || t.tagName === "TEXTAREA") return;
+    // Jouer un personnage
+    var playId = t.getAttribute && t.getAttribute("data-play");
+    if (playId) { playChar(playId, currentChars); return; }
+    // Demander la suppression d'un personnage
+    var delId = t.getAttribute && t.getAttribute("data-del");
+    if (delId) { deleteChar(delId, currentChars); return; }
+    // Annulation de la suppression
+    if (t.getAttribute && t.getAttribute("data-delno")) { renderCharSelect(currentChars); return; }
+    // Confirmation de suppression : le nom saisi doit correspondre exactement
+    var delYes = t.getAttribute && t.getAttribute("data-delyes");
+    if (delYes) {
+      var input = document.querySelector('[data-delname="' + delYes + '"]');
+      var found = null;
+      for (var i = 0; i < currentChars.length; i++) if (currentChars[i].id === delYes) found = currentChars[i];
+      if (!found) return;
+      if (!input || (input.value || "").trim() !== found.save.name) {
+        charSelectStatus("⚠ Le nom saisi ne correspond pas — suppression annulée.", false);
+        return;
+      }
+      charSelectStatus("⏳ Suppression...", true);
+      charRef(delYes).delete()
+        .then(function () {
+          currentChars = currentChars.filter(function (c) { return c.id !== delYes; });
+          charSelectStatus("☠ " + found.save.name + " a été supprimé définitivement.", true);
+          openCharFlow(currentChars);
+        })
+        .catch(function () {
+          charSelectStatus("⚠ Cloud injoignable — réessaie plus tard.", false);
+        });
+      return;
+    }
+    // Créer un nouveau personnage : on ferme l'écran et on affiche la création
+    if (t.closest("#charNewCard")) {
+      H = null;
+      showCharSelect(false);
+      try { localStorage.removeItem(SAVE_KEY); } catch (e2) {}
+      afterLogin();
+      return;
+    }
+    // Clic sur une carte (hors boutons) : joue le personnage
+    var card = t.closest("[data-char]");
+    if (card) playChar(card.getAttribute("data-char"), currentChars);
+  });
+
+  // ---- Connexion / inscription (écran d'auth) ----
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (t.id !== "btnAuthLogin" && t.id !== "btnAuthRegister") return;
+    if (!fbReady || !fbAuth) { authStatus("Firebase n'est pas configuré — suis le guide.", false); return; }
+    var email = ($("authEmail").value || "").trim();
+    var pass = $("authPass").value || "";
+    if (!email || !pass) { authStatus("Entre ton e-mail et ton mot de passe.", false); return; }
+    authStatus("⏳ Un instant...", true);
+    var p = (t.id === "btnAuthLogin")
+      ? fbAuth.signInWithEmailAndPassword(email, pass)
+      : fbAuth.createUserWithEmailAndPassword(email, pass);
+    p.then(function () { authStatus("⚔ Bienvenue dans l'arène !", true); })
+      .catch(function (err) { authStatus(authErrMsg(err), false); });
+  });
+
+  // ---- Onglets repliables : clic sur le titre ----
+  document.addEventListener("click", function (e) {
+    if (e.target.tagName === "H2" && e.target.parentNode && e.target.parentNode.classList &&
+        e.target.parentNode.classList.contains("panel")) {
+      e.target.parentNode.classList.toggle("collapsed");
+    }
+  });
+
+  // ---- Démarrage ----
+  // La connexion est obligatoire : le jeu démarre via onAuthStateChanged (voir loadAccountSave).
+  // Avant connexion, l'écran d'auth recouvre le jeu ; rien n'est lancé.
+  showAuthOverlay(true);
+})();
+</script>
+</body>
+</html>
