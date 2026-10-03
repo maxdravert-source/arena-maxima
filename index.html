@@ -178,6 +178,13 @@
     <div class="log" id="log"></div>
   </div>
 
+  <!-- Mode Aventure -->
+  <div id="adventure" class="panel hidden">
+    <h2>🗼 Mode Aventure — La Grande Tour</h2>
+    <div id="advStatus"></div>
+    <div class="actions" id="advActions"></div>
+  </div>
+
   <div id="arena" class="panel hidden">
     <h2>L'Arène</h2>
     <div id="arenaChoose"></div>
@@ -208,13 +215,6 @@
     </div>
     <div id="invDetail"></div>
     <div id="forgeBox" style="margin-top:10px;"></div>
-  </div>
-
-  <!-- Mode Aventure -->
-  <div id="adventure" class="panel hidden">
-    <h2>🗼 Mode Aventure — La Grande Tour</h2>
-    <div id="advStatus"></div>
-    <div class="actions" id="advActions"></div>
   </div>
 
   <!-- Journal -->
@@ -1930,6 +1930,7 @@
   function hide(id) { $(id).classList.add("hidden"); }
 
   function renderAll() {
+    if (!H) { show("creation"); return; } // aucun personnage : écran de création, pas de crash
     H.maxHp = maxHpOf(H);
     if (H.hp === undefined || H.hp > H.maxHp) H.hp = H.maxHp;
     show("heroPanel"); show("combatPanel"); show("saveBlock");
@@ -1978,7 +1979,8 @@
         var DC = DUNGEONS[H.dgn.id - 1];
         caBox.innerHTML = '<button class="primary" data-advfloor="1" style="margin:4px 0;">🏰 Continuer — ' +
           (H.dgn.prog >= H.dgn.need ? "⚔ " + DC.boss : "salle " + (H.dgn.prog + 1) + "/" + H.dgn.need) + '</button>';
-      } else if (AD && !AD.done) {
+      } else if (AD && !AD.done && (AD.floor > 1 || AD.tower > 1)) {
+        // Bouton Continuer : seulement si un étage a déjà été dépassé avec CE personnage
         caBox.innerHTML = '<button class="primary" data-advfloor="1" style="margin:4px 0;">' +
           (advZone === "test" ? "🧪 Continuer — Étage " + AD.floor : "🗼 Continuer — Étage " + AD.floor + " (tour " + AD.tower + ")") + '</button>';
       } else {
