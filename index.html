@@ -40,9 +40,10 @@
   .panel.collapsed { padding: 10px 16px; }
   .stats { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 15px; }
   .stats b { color: #d4a94e; }
-  .bar { background: #10100c; border: 1px solid #5a4326; border-radius: 5px; height: 14px; overflow: hidden; margin: 4px 0 10px; }
+  .bar { position: relative; background: #10100c; border: 1px solid #5a4326; border-radius: 5px; height: 14px; overflow: hidden; margin: 4px 0 10px; }
   .bar > div { height: 100%; background: linear-gradient(90deg, #8b1a1a, #d44); transition: width .3s; }
   .bar.xp > div { background: linear-gradient(90deg, #6a5b1e, #d4a94e); }
+  .bar > div { position: relative; }
   button { font-family: inherit; background: #5a4326; color: #f3e9d2; border: 1px solid #d4a94e; border-radius: 6px; padding: 9px 18px; font-size: 15px; cursor: pointer; margin: 3px 4px 3px 0; }
   button:hover { background: #7a5c34; }
   button:disabled { opacity: .4; cursor: not-allowed; }
@@ -147,8 +148,8 @@
       <span>Or : <b id="sGold">50</b></span>
       <span>Vie <b id="hpTxt"></b></span>
     </div>
-    <div class="bar" style="margin:6px 0 2px;"><div id="hpBar" style="width:100%"><span class="bar-txt" id="hpBarTxt"></span></div></div>
-    <div class="bar xp" style="margin-top:2px;"><div id="xpBar" style="width:0%"><span class="bar-txt" id="xpBarTxt"></span></div></div>
+    <div class="bar" style="margin:6px 0 2px;"><div id="hpBar" style="width:100%"></div><span class="bar-txt" id="hpBarTxt"></span></div>
+    <div class="bar xp" style="margin-top:2px;"><div id="xpBar" style="width:0%"></div><span class="bar-txt" id="xpBarTxt"></span></div>
     <div id="pointsNote" class="hidden" style="color:#d4a94e;font-size:14px;margin-top:8px;">
       <!-- Les points de niveau n'existent plus : l'entraînement est la seule voie d'amélioration des stats de base. -->
     </div>
